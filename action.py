@@ -1,11 +1,11 @@
 import logging
-
+from event import Event
 
 """ One interface for different types notification delivery """
 
 
 class Action:
-    def notify(cls, message: str, isSevere: bool = False) -> None:
+    def notify(cls, message: Event) -> None:
         raise NotImplementedError()
 
 
@@ -15,8 +15,8 @@ class TerminalNotifier(Action):
 
     """ Show notification messages in terminal """
 
-    def notify(cls, message: str, isSevere: bool = False) -> None:
-        if isSevere:
+    def notify(cls, message: Event) -> None:
+        if message.priority > Event.Priority.MEDIUM:
             logging.warn(message)
         else:
             logging.info(message)

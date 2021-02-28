@@ -28,6 +28,8 @@ class HTTPLogParser(Parser):
         cls.log = logging.getLogger(__name__)
 
     def parse(cls) -> None:
-        e = HTTPEvent(source="192.168.0.1", time=datetime.now())
+        e = HTTPEvent(
+            time=datetime.now(), source="192.168.0.1", priority=Event.Priority.HIGH
+        )
         cls.processor.consume([e] * 3)
         cls.log.debug("Monitoring HTTP log file %s", cls.path)
