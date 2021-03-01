@@ -22,5 +22,5 @@ class HTTPEventProcessor(Processor):
     def consume(cls, event: HTTPEvent) -> None:
         cls.action.notify(event)
 
-    def consume(cls, events: List[HTTPEvent]) -> None:
+    def consumeBatch(cls, events: List[HTTPEvent]) -> None:
         [cls.action.notify(event) for event in events]
