@@ -1,10 +1,12 @@
+from enum import IntEnum
 from datetime import datetime
 from dataclasses import dataclass
-from enum import IntEnum
 
 
 @dataclass
 class Event:
+    """ Represents an individual event """
+
     class Priority(IntEnum):
         LOW = 0
         MEDIUM = 1
@@ -23,6 +25,8 @@ class Event:
 
 @dataclass
 class HTTPEvent(Event):
+    """ Represents an individual HTTP event """
+
     rfc931: str
     authuser: str
     request: str
@@ -31,11 +35,11 @@ class HTTPEvent(Event):
     section: str
 
     def __repr__(cls) -> str:
-        return "{0} {1} {2}, from {3}, status={status}, section={section}".format(
-            cls.__class__.__name__,
-            cls.time,
-            cls.priority.name,
-            cls.source,
+        return "{name} {time} {priority}, from {source}, status={status}, section={section}".format(
+            name=cls.__class__.__name__,
+            time=cls.time,
+            priority=cls.priority.name,
+            source=cls.source,
             status=cls.status,
             section=cls.section,
         )

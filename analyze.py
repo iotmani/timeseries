@@ -1,10 +1,12 @@
 import logging
+from typing import List
 from action import Action
 from event import Event, HTTPEvent
-from typing import List
 
 
 class Processor:
+    """ Collects and anlyzes parsed events """
+
     def __init__(cls, action: Action):
         cls.action = action
 
@@ -13,11 +15,11 @@ class Processor:
 
 
 class HTTPEventProcessor(Processor):
+    """ Collects and anlyzes parsed HTTP events """
+
     def __init__(cls, action: Action):
         super().__init__(action)
         logging.basicConfig(level=logging.INFO)
-
-    """ Collects and anlyzes http events """
 
     def consume(cls, event: HTTPEvent) -> None:
         cls.action.notify(event)
