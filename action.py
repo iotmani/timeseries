@@ -1,4 +1,3 @@
-import logging
 from event import Event
 
 
@@ -12,11 +11,15 @@ class Action:
 class TerminalNotifier(Action):
     """ Show notification messages in terminal """
 
+    HEADER_WIDTH = 80
+
     def __init__(cls):
-        logging.basicConfig(level=logging.INFO)
+        print("=" * TerminalNotifier.HEADER_WIDTH)
+        print("|" + "Logs Viewer 2000".center(TerminalNotifier.HEADER_WIDTH - 2) + "|")
+        print("=" * TerminalNotifier.HEADER_WIDTH)
 
     def notify(cls, message: Event) -> None:
         if message.priority > Event.Priority.MEDIUM:
-            logging.warn(message)
+            print("Warning: " + str(message))
         else:
-            logging.info(message)
+            print(message)
