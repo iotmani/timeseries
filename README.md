@@ -1,29 +1,32 @@
-# HTTP Traffic monitor
-Monitor your HTTP logs and keep an eye on statistics or unusual traffic levels.
+# Log Monitor 2000
+Monitor your HTTP logs and see interesting statistics, or keep an eye on unusual traffic levels.
 
 
-Installation
-============
+## Usage
+No additional libraries are needed to run the log monitor.
 
-You do not need additional libraries to run the log monitor, just see:
+Simply pass a log file:
+
+`python main.py tests/small_sample_csv.txt`
+
+For more options see help:
 
 ```python main.py --help```
 
-Example:
 
-`python main.py --log path/to/http.csv`
-
-
-
-Development
-======
+## Development
 
 Testing
--------
+--------
 
-To run tests, you'll need python plugins 'pytest' and optionally 'black' for standardizing and auto-formatting any code changes you make.
+To run unit-tests:
 
-`pip install pytest black`
+`python -m unittest`
+
+
+Install 'black' for standardizing and auto-formatting any code changes you make in your IDE of choice.
+
+`pip install black`
 
 Alternatively, just create a virtual environment:
 ```
@@ -33,26 +36,32 @@ pip install -r requirements.txt
 ```
 Then `deactivate` when done.
 
+
 Architecture
 ------------
 
-This is made of a parser, analyzer and action modules, with forward dependency. 
-Each part tries to do one thing and passes data to the next stage.
+This is made of a parser, analyzer and action modules.
+Each part tries to do one thing and passes data to the next stage thanks to forward dependency and dependency injection.
 
+This way, an Action to display to terminal doesn't do any data analysis, the processor doesn't care whether events were HTTP logs or information brought by piegeon, the parser does just the input reading and sanitation. 
 
 **Parser**
 
-Parses a log file while skipping any invalid lines, and generates events to analyse.
+Specifically, the HTTP Parser parses a HTTP log file while skipping any invalid lines as best-effort, and generates events to analyse.
 
-Additional protocols or sources can just implement the Parser interface
+Additional protocols or sources can just implement the Parser interface.
 
 **Analyze**
 
-Collects log events and applies statistics to determine e.g. if there's a high level of traffix within the past x minutes. If so, it generates a traffic events that need to be actioned some-how.
+Collects events and applies statistics to determine e.g. if there's a high level of traffic within the past x minutes. If so, it generates a traffic events that need to be actioned somehow.
 
+Other 'Processor's can be implemented, such as persisting the data into a time-series database.
 
 **Action**
 
-Displays general statistics and important information like high-traffic alerts in the screen.
-Other actions can be implemented such as sending an email or triggering oncall for example.
+The display to terminal Action displays the calculated statistics and important information like high-traffic alerts in the screen.
 
+Other 'Action's can be implemented such as sending an email notification.
+
+
+We can easily add e.g. multiple processors/actions instances to notify in a publish-subscribe form as the project grows.

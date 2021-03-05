@@ -8,13 +8,11 @@ def main():
     """ Extract data from logs, analyze them and take appropriate actions """
 
     argsParser = ArgumentParser()
-    argsParser.add_argument(
-        "--log", help="Log file path", default="tests/small_sample_csv.txt"
-    )
+    argsParser.add_argument("logfile", help="HTTP log path, e.g. tests/sample_csv.txt")
     args = argsParser.parse_args()
 
-    # Construct HTTP logs specific parser, processor and notification handler
-    HTTPLogParser(HTTPEventProcessor(TerminalNotifier()), path=args.log).parse()
+    # Construct HTTP specific logs parser, processor and a terminal notification handler
+    HTTPLogParser(HTTPEventProcessor(TerminalNotifier()), path=args.logfile).parse()
 
 
 if __name__ == "__main__":
