@@ -23,7 +23,6 @@ class HTTPLogParser(Parser):
 
     def __init__(cls, processor: Processor, path: str):
         super().__init__(processor)
-        logging.basicConfig(level=logging.DEBUG)
         cls.log = logging.getLogger(__name__)
         cls.path = path
 

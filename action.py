@@ -2,14 +2,14 @@ from event import Event
 
 
 class Action:
-    """ One interface for different types notification handling """
+    """ One interface for taking action based on events """
 
     def notify(cls, message: Event) -> None:
         raise NotImplementedError()
 
 
 class TerminalNotifier(Action):
-    """ Show notification messages in terminal """
+    """ Show a notification messages in terminal """
 
     HEADER_WIDTH = 80
 

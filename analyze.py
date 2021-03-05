@@ -27,7 +27,6 @@ class HTTPEventProcessor(Processor):
 
     def __init__(cls, action: Action):
         super().__init__(action)
-        logging.basicConfig(level=logging.INFO)
         cls.log = logging.getLogger(__name__)
         # Used for general traffic stats
         cls.timeLastCollectedStats = None
@@ -42,26 +41,34 @@ class HTTPEventProcessor(Processor):
         """ General stats """
         cls.timeLastCollectedStats = cls.timeLastCollectedStats or latestEvent.time
         if (latestEvent.time - cls.timeLastCollectedStats) < cls.statsInterval:
-            # Latest event time hasn't yet crossed interval
+            # Latest event time hasn't yet crossed the full interval
             return
+
         countSections = Counter()
         countSources = Counter()
-        # Start from most recent event and stop when window interval reached
+        # Start from most recent event and up, stop when window interval reached
         for e in reversed(cls.events):
             # Skip old events outside interval for stats calculation
             if (latestEvent.time - e.time) > (cls.statsInterval):
-                cls.log.debug("Skipping old events starting from %s" % e.time)
+                cls.log.debug(
+                    "Skipping old events starting from %s (interval %s)"
+                    % (e.time, latestEvent.time - e.time)
+                )
                 break
+            cls.log.debug(
+                "counting log %s from %s at %s" % (e.section, e.source, e.time)
+            )
             countSections[e.section] += 1
             countSources[e.source] += 1
-            trafficEvent = event.Event(
-                priority=event.Event.Priority.MEDIUM,
-                message="Stats - highest freq sections "
-                + str(countSections.most_common(1)[0])
-                + ", sources: "
-                + str(countSources.most_common(1)[0]),
-                time=latestEvent.time,
-            )
+        trafficEvent = event.Event(
+            priority=event.Event.Priority.MEDIUM,
+            message="Stats - highest freq sections "
+            + str(countSections.most_common(1)[0])
+            + ", sources: "
+            + str(countSources.most_common(1)[0]),
+            time=latestEvent.time,
+        )
+        cls.log.debug(trafficEvent)
         cls.action.notify(trafficEvent)
         cls.timeLastCollectedStats = latestEvent.time
 
