@@ -27,6 +27,32 @@ class HTTPLogParser(Parser):
         cls.log = logging.getLogger(__name__)
         cls.path = path
 
+    def parse(cls) -> None:
+        """ Parse raw data from log file and generate log event object """
+
+        log = cls.log
+        log.info("Monitoring HTTP log file %s", cls.path)
+        try:
+            with open(cls.path, mode="r") as fd:
+                logreader = csv.reader(fd)
+
+                # Skip header if exists
+                header = next(logreader)
+                if len(header) > 0 and header[0] != "remotehost":
+                    log.debug("No header")
+                    fd.seek(0)
+                else:
+                    log.debug("Header: %s", header)
+
+                # Parse rows in best-effort mode (skip any bad lines)
+                # and generate HTTP Log events to send for processing
+                [cls._generateEvent(row) for row in logreader if cls._isSanitised(row)]
+
+        except FileNotFoundError as e:
+            log.error("HTTP log file doesn't exist: %s", cls.path)
+        except csv.Error as ce:
+            log.error("HTTP log file not valid CSV: %s", cls.path)
+
     def _isSanitised(cls, row: typing.List[str]) -> typing.List[str]:
         """ Sanitise row columns data types and parse data within as needed. """
         if len(row) != 7:
@@ -63,30 +89,6 @@ class HTTPLogParser(Parser):
             section=row[7],
             status=row[5],
             size=row[6],
+            message=None,
         )
         cls.processor.consume(e)
-
-    def parse(cls) -> None:
-        """ Parse raw data from log file and generate log event object """
-
-        log = cls.log
-        log.info("Monitoring HTTP log file %s", cls.path)
-        try:
-            with open(cls.path, mode="r") as fd:
-                logreader = csv.reader(fd)
-
-                # Skip header if exists
-                header = next(logreader)
-                if len(header) > 0 and header[0] != "remotehost":
-                    log.debug("No header")
-                    fd.seek(0)
-                else:
-                    log.debug("Header: %s", header)
-
-                # Parse rows and generate HTTP Log events to send for processing
-                [cls._generateEvent(row) for row in logreader if cls._isSanitised(row)]
-
-        except FileNotFoundError as e:
-            log.error("HTTP log file doesn't exist: %s", cls.path)
-        except csv.Error as ce:
-            log.error("HTTP log file not valid CSV: %s", cls.path)

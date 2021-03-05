@@ -1,4 +1,4 @@
-from enum import IntEnum
+import enum
 from datetime import datetime
 from dataclasses import dataclass
 
@@ -7,19 +7,19 @@ from dataclasses import dataclass
 class Event:
     """ Represents an individual event """
 
-    class Priority(IntEnum):
+    class Priority(enum.IntEnum):
         LOW = 0
         MEDIUM = 1
         HIGH = 2
         SEVERE = 3
 
     time: datetime
-    source: str
+    message: str
     priority: Priority
 
     def __repr__(cls) -> str:
-        return "{0} {1} {2}, from {3}".format(
-            cls.__class__.__name__, cls.time, cls.priority.name, cls.source
+        return "{name} {time} - {message}".format(
+            name=cls.__class__.__name__, time=cls.time, message=cls.message
         )
 
 
@@ -29,6 +29,7 @@ class HTTPEvent(Event):
 
     rfc931: str
     authuser: str
+    source: str
     request: str
     status: int
     size: int
@@ -38,8 +39,8 @@ class HTTPEvent(Event):
         return "{name} {time} {priority}, from {source}, status={status}, section={section}".format(
             name=cls.__class__.__name__,
             time=cls.time,
-            priority=cls.priority.name,
             source=cls.source,
             status=cls.status,
             section=cls.section,
+            priority=cls.priority.name,
         )
