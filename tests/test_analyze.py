@@ -1,7 +1,7 @@
 import unittest
 from event import HTTPEvent, Event
 from action import Action
-from analyze import HTTPEventProcessor
+from analyze import HTTPEventProcessor, Processor
 from datetime import datetime, timedelta
 from collections import deque
 from unittest.mock import MagicMock
@@ -9,6 +9,7 @@ from unittest.mock import MagicMock
 
 class TestAnalyzeAlgorithms(unittest.TestCase):
     def _constructEvent(cls, time):
+        """ Construct commonly required Event content where only time matters """
         return HTTPEvent(
             time=time,
             priority=HTTPEvent.Priority.MEDIUM,
@@ -23,6 +24,9 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
         )
 
     def testCalculateStats(cls):
+        """Test that we generate stats only when expected,
+        and with only the relevant events"""
+
         action = MagicMock()
         proc = HTTPEventProcessor(action)
         now = datetime.now()
@@ -104,3 +108,9 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
         cls.assertEqual(
             2, action.notify.call_count, "No more events should be generated"
         )
+
+    def testProcessorNotImplemented(cls):
+        # Just for better code coverage
+        with cls.assertRaises(NotImplementedError):
+            e = cls._constructEvent("2021-03-05")
+            Processor(Action()).consume(e)

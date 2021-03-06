@@ -24,16 +24,36 @@ To run unit-tests:
 `python -m unittest`
 
 
-Install 'black' for standardizing and auto-formatting any code changes you make in your IDE of choice.
+It is highly recommended to install 'black' for standardizing and auto-formatting any code changes you make in your IDE of choice, along with coverage for unit-test coverage reports.
 
-`pip install black`
+`pip install black coverage`
 
 Alternatively, just create a virtual environment:
 ```
 virtualenv venv
 source venv/Scripts/activate
-pip install -r requirements.txt
+pip install -r requirements-dev.txt
 ```
+
+Run code coverage:
+
+`coverage run --omit '*/venv3/*,*/tests/*' -m unittest`
+
+Generate test-coverage report (html optional):
+
+`coverage report`
+
+```
+$ coverage report
+Name         Stmts   Miss  Cover
+--------------------------------
+action.py       14      0   100%
+analyze.py      42      0   100%
+event.py        26      1    96%
+--------------------------------
+TOTAL           82      1    99%
+```
+
 Then `deactivate` when done.
 
 
