@@ -1,5 +1,5 @@
 import unittest
-from event import HTTPEvent, Event
+from event import WebEvent, Event
 from action import Action
 from analyze import StatsProcessor, Processor
 from datetime import datetime, timedelta
@@ -10,9 +10,9 @@ from unittest.mock import MagicMock
 class TestAnalyzeAlgorithms(unittest.TestCase):
     def _constructEvent(cls, time):
         """ Construct commonly required Event content where only time matters """
-        return HTTPEvent(
+        return WebEvent(
             time=time,
-            priority=HTTPEvent.Priority.MEDIUM,
+            priority=WebEvent.Priority.MEDIUM,
             message="Some log",
             rfc931=None,
             authuser=None,

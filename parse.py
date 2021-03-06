@@ -2,7 +2,7 @@ import os
 import csv
 import typing
 import logging
-from event import HTTPEvent
+from event import WebEvent
 from analyze import Processor
 from datetime import datetime
 
@@ -19,7 +19,7 @@ class Parser:
 
 
 class HTTPLogParser(Parser):
-    """ Parses HTTP logs and generates HTTPEvent type events """
+    """ Parses HTTP logs and generates WebEvent type of events """
 
     def __init__(cls, processor: Processor, path: str):
         super().__init__(processor)
@@ -79,8 +79,8 @@ class HTTPLogParser(Parser):
         """ Build event object from pre-sanitised data and send for processing """
 
         timestamp = datetime.fromtimestamp(int(row[3]))
-        e = HTTPEvent(
-            priority=HTTPEvent.Priority.MEDIUM,
+        e = WebEvent(
+            priority=WebEvent.Priority.MEDIUM,
             source=row[0],
             rfc931=row[1],
             authuser=row[2],

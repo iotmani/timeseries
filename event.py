@@ -22,8 +22,8 @@ class Event:
 
 
 @dataclass
-class HTTPEvent(Event):
-    """ Represents an individual HTTP event """
+class WebEvent(Event):
+    """ Represents an individual Web traffic event """
 
     rfc931: str
     authuser: str
