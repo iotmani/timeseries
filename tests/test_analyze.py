@@ -54,7 +54,7 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
 
         action1Expected = Event(
             priority=Event.Priority.MEDIUM,
-            message="Stats - highest freq sections "
+            message="Stats - Highest freq sections "
             + str((e2Recent.section, 1))
             + ", sources: "
             + str((e2Recent.source, 1)),
@@ -87,7 +87,7 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
 
         action2Expected = Event(
             priority=Event.Priority.MEDIUM,
-            message="Stats - highest freq sections "
+            message="Stats - Highest freq sections "
             + str((e5NewIntervalCrossed.section, 4))
             + ", sources: "
             + str((e5NewIntervalCrossed.source, 3)),

@@ -15,7 +15,7 @@ class TerminalNotifier(Action):
 
     def __init__(cls):
         print("=" * TerminalNotifier.HEADER_WIDTH)
-        print("|" + "Logs Viewer 2000".center(TerminalNotifier.HEADER_WIDTH - 2) + "|")
+        print("|" + "Logs Monitor 2000".center(TerminalNotifier.HEADER_WIDTH - 2) + "|")
         print("=" * TerminalNotifier.HEADER_WIDTH)
 
     def notify(cls, message: Event) -> None:

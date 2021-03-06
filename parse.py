@@ -30,7 +30,7 @@ class HTTPLogParser(Parser):
         """ Parse raw data from log file and generate log event object """
 
         log = cls.log
-        log.info("Monitoring HTTP log file %s", cls.path)
+        log.info(f"Monitoring HTTP log file {cls.path}")
         try:
             with open(cls.path, mode="r") as fd:
                 logreader = csv.reader(fd)
@@ -41,35 +41,36 @@ class HTTPLogParser(Parser):
                     log.debug("No header")
                     fd.seek(0)
                 else:
-                    log.debug("Header: %s", header)
+                    log.debug(f"Header: {header}")
 
                 # Parse rows in best-effort mode (skip any bad lines)
                 # and generate HTTP Log events to send for processing
-                [cls._generateEvent(row) for row in logreader if cls._isSanitised(row)]
+                for row in logreader:
+                    if cls._isSanitised(row):
+                        cls._generateEvent(row)
 
         except FileNotFoundError as e:
-            log.error("HTTP log file doesn't exist: %s", cls.path)
+            log.error(f"HTTP log file doesn't exist: {cls.path}")
         except csv.Error as ce:
-            log.error("HTTP log file not valid CSV: %s", cls.path)
+            log.error(f"HTTP log file not valid CSV: {cls.path}")
 
-    def _isSanitised(cls, row: typing.List[str]) -> typing.List[str]:
+    def _isSanitised(cls, row: typing.List[str]) -> bool:
         """ Sanitise row columns data types and parse data within as needed. """
         if len(row) != 7:
-            cls.log.warning("Malformed CSV row: %s", row)
+            cls.log.warning(f"Malformed CSV row: {row}")
             return False
 
         # Parse section out of request, i.e. row[4]
-        row.append(row[4])
-        row[7] = row[7].split(" ")
-        if len(row[7]) < 2 or len(row[7][1].split("/")) < 2:
-            cls.log.warning("Malformed 'section' part of row: %s", row)
+        section = row[4].split(" ")
+        if len(section) < 2 or len(section[1].split("/")) < 2:
+            cls.log.warning(f"Malformed 'section' part of row: {row}")
             return False
-        row[7] = row[7][1].split("/")[1]
+        row.append("/" + section[1].split("/")[1])
 
         try:
-            row.append(datetime.fromtimestamp(int(row[3])))
+            row.append(str(datetime.fromtimestamp(int(row[3]))))
         except (ValueError, OverflowError, OSError) as e:
-            cls.log.warning("Malformed 'date' part of row: %s", row)
+            cls.log.warning(f"Malformed 'date' part of row: {row}")
             return False
 
         return True
@@ -88,6 +89,6 @@ class HTTPLogParser(Parser):
             section=row[7],
             status=row[5],
             size=row[6],
-            message=None,
+            message="",
         )
         cls.processor.consume(e)

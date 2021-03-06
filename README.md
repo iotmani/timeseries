@@ -1,4 +1,4 @@
-# Log Monitor 2000
+# Logs Monitor 2000
 Monitor your HTTP logs and see interesting statistics, or keep an eye on unusual traffic levels.
 
 
@@ -24,9 +24,12 @@ To run unit-tests:
 `python -m unittest`
 
 
-It is highly recommended to install 'black' for standardizing and auto-formatting any code changes you make in your IDE of choice, along with coverage for unit-test coverage reports.
+We use the following packages during development:
+*  'black' for standardizing and auto-formatting any code changes you make in your IDE of choice, 
+*  'coverage' for unit-test coverage reports,
+*  'mypy' for static type checking based on type-annotations.
 
-`pip install black coverage`
+`pip install black coverage mypy`
 
 Alternatively, just create a virtual environment:
 ```
@@ -54,6 +57,11 @@ event.py        26      1    96%
 TOTAL           82      1    99%
 ```
 
+Mypy:
+
+`mypy LogMonitor2000.py`
+
+
 Then `deactivate` when done.
 
 
@@ -65,7 +73,7 @@ Each part tries to do one thing and passes data to the next stage thanks to forw
 
 This way, an Action to display to terminal doesn't do any data analysis, the processor doesn't care whether events were HTTP logs or information brought by piegeon, the parser does just the input reading and sanitation. 
 
-The modules are split into the three stages below.
+The modules are split into the three stages below, in addition to an Event
 
 **Parse**
 

@@ -18,9 +18,7 @@ class Event:
     priority: Priority
 
     def __repr__(cls) -> str:
-        return "{time} |{name}| {message}".format(
-            name=cls.__class__.__name__, time=cls.time, message=cls.message
-        )
+        return f"{cls.time} {cls.message}"
 
 
 @dataclass
@@ -31,16 +29,10 @@ class HTTPEvent(Event):
     authuser: str
     source: str
     request: str
-    status: int
-    size: int
+    status: str
+    size: str
     section: str
 
     def __repr__(cls) -> str:
-        return "{name} {time} {priority}, from {source}, status={status}, section={section}".format(
-            name=cls.__class__.__name__,
-            time=cls.time,
-            source=cls.source,
-            status=cls.status,
-            section=cls.section,
-            priority=cls.priority.name,
-        )
+        return f"{cls.__class__.__name__} {cls.time} {cls.priority.name}, "
+        f"from {cls.source}, status={cls.status}, section={cls.section}"
