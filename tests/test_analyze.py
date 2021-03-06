@@ -1,7 +1,7 @@
 import unittest
 from event import HTTPEvent, Event
 from action import Action
-from analyze import HTTPEventProcessor, Processor
+from analyze import StatsProcessor, Processor
 from datetime import datetime, timedelta
 from collections import deque
 from unittest.mock import MagicMock
@@ -28,7 +28,7 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
         and with only the relevant events"""
 
         action = MagicMock()
-        proc = HTTPEventProcessor(action)
+        proc = StatsProcessor(action)
         now = datetime.now()
         cls.statsInterval = timedelta(seconds=10)
 

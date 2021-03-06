@@ -18,7 +18,7 @@ class Event:
     priority: Priority
 
     def __repr__(cls) -> str:
-        return "{name} {time} - {message}".format(
+        return "{time} |{name}| {message}".format(
             name=cls.__class__.__name__, time=cls.time, message=cls.message
         )
 

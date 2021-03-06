@@ -1,7 +1,7 @@
 import logging
 from parse import HTTPLogParser
 from action import TerminalNotifier
-from analyze import HTTPEventProcessor
+from analyze import StatsProcessor
 from argparse import ArgumentParser
 
 
@@ -13,8 +13,8 @@ def main():
     argsParser.add_argument("logfile", help="HTTP log path, e.g. tests/sample_csv.txt")
     args = argsParser.parse_args()
 
-    # Construct HTTP specific logs parser, processor and a terminal notification handler
-    HTTPLogParser(HTTPEventProcessor(TerminalNotifier()), path=args.logfile).parse()
+    # Construct HTTP-specific logs parser, to be analyzed by a stats processor, and displayed in a terminal notification handler
+    HTTPLogParser(StatsProcessor(TerminalNotifier()), path=args.logfile).parse()
 
 
 if __name__ == "__main__":

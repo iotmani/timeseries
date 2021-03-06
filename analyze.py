@@ -22,8 +22,8 @@ class Processor:
         raise NotImplementedError()
 
 
-class HTTPEventProcessor(Processor):
-    """ Anlyzes parsed HTTP events """
+class StatsProcessor(Processor):
+    """ Anlyzes sourced traffic events """
 
     def __init__(cls, action: Action):
         super().__init__(action)
@@ -32,7 +32,7 @@ class HTTPEventProcessor(Processor):
         cls.timeLastCollectedStats = None
 
     def consume(cls, eventParsed: event.HTTPEvent) -> None:
-        """ Consume HTTP log entry, calculate stats and traffic volume changes """
+        """ Consume sourced traffic entry, calculate stats and volume changes in traffic """
         cls.events.append(eventParsed)
         cls._calculateStats(eventParsed)
         cls._checkSurgesAndDrops(eventParsed)
