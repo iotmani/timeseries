@@ -18,8 +18,5 @@ class TerminalNotifier(Action):
         print("|" + "Logs Monitor 2000".center(TerminalNotifier.HEADER_WIDTH - 2) + "|")
         print("=" * TerminalNotifier.HEADER_WIDTH)
 
-    def notify(cls, message: Event) -> None:
-        if message.priority > Event.Priority.MEDIUM:
-            print("Warning: " + str(message))
-        else:
-            print(message)
+    def notify(cls, e: Event) -> None:
+        print(e)

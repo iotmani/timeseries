@@ -44,7 +44,7 @@ class HTTPLogParser(Parser):
                     log.debug(f"Header: {header}")
 
                 # Parse rows in best-effort mode (skip any bad lines)
-                # and generate HTTP Log events to send for processing
+                # and generate WebEvents to send for processing
                 for row in logreader:
                     if cls._isSanitised(row):
                         cls._generateEvent(row)
@@ -68,7 +68,7 @@ class HTTPLogParser(Parser):
         row.append("/" + section[1].split("/")[1])
 
         try:
-            row.append(str(datetime.fromtimestamp(int(row[3]))))
+            datetime.fromtimestamp(int(row[3]))
         except (ValueError, OverflowError, OSError) as e:
             cls.log.warning(f"Malformed 'date' part of row: {row}")
             return False

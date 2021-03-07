@@ -5,6 +5,8 @@ from unittest.mock import patch
 
 
 class TestActionTerminalNotifier(TestCase):
+    """ Patch print() to test what it was called with """
+
     @patch("builtins.print")
     def testNotify(cls, mock_print):
         n = TerminalNotifier()
@@ -19,8 +21,8 @@ class TestActionTerminalNotifier(TestCase):
 
         event.priority = Event.Priority.HIGH
         n.notify(event)
-        mock_print.assert_called_with("Warning: " + str(event))
+        mock_print.assert_called_with(event)
 
         # Just for better code coverage
         with cls.assertRaises(NotImplementedError):
-            Action().notify("Hi")
+            Action().notify(event)
