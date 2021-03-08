@@ -3,7 +3,7 @@ Monitor your HTTP logs and see interesting statistics, or keep an eye on unusual
 
 
 ## Usage
-No additional libraries are needed to run the log monitor.
+No additional libraries are needed to run the log monitor. Tested with Python 3.8.1.
 
 Simply pass a log file:
 
@@ -61,6 +61,9 @@ Mypy:
 
 `mypy LogMonitor2000.py`
 
+Profilng:
+
+`python -m profile -s 'tottime' LogsMonitor2000.py tests/sample_csv.txt`
 
 Then `deactivate` when done.
 

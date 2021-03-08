@@ -11,12 +11,12 @@ class Action:
 class TerminalNotifier(Action):
     """ Show a notification messages in terminal """
 
-    HEADER_WIDTH = 80
+    _HEADER_WDTH = 80
 
     def __init__(cls):
-        print("=" * TerminalNotifier.HEADER_WIDTH)
-        print("|" + "Logs Monitor 2000".center(TerminalNotifier.HEADER_WIDTH - 2) + "|")
-        print("=" * TerminalNotifier.HEADER_WIDTH)
+        print("=" * TerminalNotifier._HEADER_WDTH)
+        print("|" + "Logs Monitor 2000".center(TerminalNotifier._HEADER_WDTH - 2) + "|")
+        print("=" * TerminalNotifier._HEADER_WDTH)
 
     def notify(cls, e: Event) -> None:
         print(e)

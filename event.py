@@ -17,6 +17,10 @@ class Event:
     message: str
     priority: Priority
 
+    def __lt__(cls, other) -> bool:
+        " Ordered by time by default "
+        return cls.time < other.time
+
     def __repr__(cls) -> str:
         return f"{cls.time} {cls.message}"
 
@@ -32,7 +36,3 @@ class WebEvent(Event):
     status: str
     size: str
     section: str
-
-    def __repr__(cls) -> str:
-        return f"{cls.__class__.__name__} {cls.time} {cls.priority.name}, "
-        f"from {cls.source}, status={cls.status}, section={cls.section}"
