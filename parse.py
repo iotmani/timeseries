@@ -23,16 +23,16 @@ class HTTPLogParser(Parser):
 
     def __init__(cls, processor: Processor, path: str):
         super().__init__(processor)
-        cls.log = logging.getLogger(__name__)
-        cls.path = path
+        cls._log = logging.getLogger(__name__)
+        cls._path = path
 
     def parse(cls) -> None:
         """ Parse raw data from log file and generate log event object """
 
-        log = cls.log
-        log.info(f"Monitoring HTTP log file {cls.path}")
+        log = cls._log
+        log.info(f"Monitoring HTTP log file {cls._path}")
         try:
-            with open(cls.path, mode="r") as fd:
+            with open(cls._path, mode="r") as fd:
                 logreader = csv.reader(fd)
 
                 # Skip header if exists
@@ -50,27 +50,27 @@ class HTTPLogParser(Parser):
                         cls._generateEvent(row)
 
         except FileNotFoundError as e:
-            log.error(f"HTTP log file doesn't exist: {cls.path}")
+            log.error(f"HTTP log file doesn't exist: {cls._path}")
         except csv.Error as ce:
-            log.error(f"HTTP log file not valid CSV: {cls.path}")
+            log.error(f"HTTP log file not valid CSV: {cls._path}")
 
     def _isSanitised(cls, row: typing.List[str]) -> bool:
         """ Sanitise row columns data types and parse data within as needed. """
         if len(row) != 7:
-            cls.log.warning(f"Malformed CSV row: {row}")
+            cls._log.warning(f"Malformed CSV row: {row}")
             return False
 
         # Parse section out of request, i.e. row[4]
         section = row[4].split(" ")
         if len(section) < 2 or len(section[1].split("/")) < 2:
-            cls.log.warning(f"Malformed 'section' part of row: {row}")
+            cls._log.warning(f"Malformed 'section' part of row: {row}")
             return False
         row.append("/" + section[1].split("/")[1])
 
         try:
             datetime.fromtimestamp(int(row[3]))
         except (ValueError, OverflowError, OSError) as e:
-            cls.log.warning(f"Malformed 'date' part of row: {row}")
+            cls._log.warning(f"Malformed 'date' part of row: {row}")
             return False
 
         return True
