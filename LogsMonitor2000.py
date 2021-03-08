@@ -32,6 +32,11 @@ def main():
         type=int,
         default=120,
     )
+
+    argsParser.add_argument(
+        "--monitor", help="continuous file watching for updates", action="store_true"
+    )
+
     args = argsParser.parse_args()
 
     if args.verbose:
@@ -44,6 +49,7 @@ def main():
             statsInterval=args.stats_interval,
             highTrafficAvgThreshold=args.high_traffic_threshold,
             highTrafficInterval=args.high_traffic_time_interval,
+            isMonitor=args.monitor,
         ),
         path=args.logfile,
     ).parse()
