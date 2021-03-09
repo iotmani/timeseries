@@ -51,7 +51,7 @@ def main():
             highTrafficInterval=args.high_traffic_time_interval,
         ),
         path=args.logfile,
-        isMonitor=args.monitor,
+        isMonitorMode=args.monitor,
     ).parse()
 
 

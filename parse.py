@@ -22,11 +22,11 @@ class Parser:
 class HTTPLogParser(Parser):
     """ Parses HTTP logs and generates WebEvent type of events """
 
-    def __init__(cls, processor: Processor, path: str, isMonitor: bool = False):
+    def __init__(cls, processor: Processor, path: str, isMonitorMode: bool = False):
         super().__init__(processor)
         cls._log = logging.getLogger(__name__)
         cls._path = path
-        cls._isMonitor = isMonitor
+        cls._isMonitorMode = isMonitorMode
 
     def _parseHttpLogFile(cls, position: int = 0) -> int:
         try:
@@ -43,16 +43,17 @@ class HTTPLogParser(Parser):
                     else:
                         cls._log.debug(f"Header: {header}")
                 except StopIteration as e:
-                    # E.g. Occurs when polling end of file
-                    cls._log.debug("Nothing to read")
+                    # E.g. Occurs if empty file or polling end of file
+                    cls._log.debug("Nothing further to read")
                     pass
 
                 # Parse rows in best-effort mode (skip any bad lines)
-                # and generate WebEvents to send for processing
                 for row in logreader:
                     if cls._isSanitised(row):
+                        # and generate WebEvents to send for processing
                         cls._generateEvent(row)
                 return fd.tell()
+
         except FileNotFoundError as e:
             log.error(f"HTTP log file doesn't exist: {cls._path}")
         except csv.Error as ce:
@@ -64,7 +65,7 @@ class HTTPLogParser(Parser):
         position = 0
         while True:
             position = cls._parseHttpLogFile(position)
-            if not cls._isMonitor:
+            if not cls._isMonitorMode:
                 break
             # Sleep for x seconds
             time.sleep(os.getenv("DD_LOG_MONITOR_TIME", 1))
