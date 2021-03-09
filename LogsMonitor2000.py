@@ -7,13 +7,9 @@ from argparse import ArgumentParser
 
 def main():
     """ Extract data from logs, analyze them and take appropriate actions """
-
-    logging.basicConfig(level=logging.INFO)
     argsParser = ArgumentParser(description="Parse HTTP logs and monitor traffic")
     argsParser.add_argument("logfile", help="HTTP log path, e.g. tests/sample_csv.txt")
-    argsParser.add_argument(
-        "--verbose", help="Print DEBUG lines", default=False, action="store_true"
-    )
+    argsParser.add_argument("--verbose", help="Print DEBUG lines", action="store_true")
     argsParser.add_argument(
         "--stats_interval",
         help="Print general stats every x seconds",
@@ -32,10 +28,19 @@ def main():
         type=int,
         default=120,
     )
+
+    argsParser.add_argument(
+        "--monitor",
+        help="continuous file watching for updates",
+        action="store_true",
+    )
+
     args = argsParser.parse_args()
 
     if args.verbose:
         logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.INFO)
 
     # Construct HTTP-specific logs parser, to be analyzed by a stats processor, and displayed in a terminal notification handler
     HTTPLogParser(
@@ -46,6 +51,7 @@ def main():
             highTrafficInterval=args.high_traffic_time_interval,
         ),
         path=args.logfile,
+        isMonitor=args.monitor,
     ).parse()
 
 

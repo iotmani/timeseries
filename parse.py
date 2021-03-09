@@ -1,5 +1,6 @@
 import os
 import csv
+import time
 import typing
 import logging
 from event import WebEvent
@@ -21,38 +22,52 @@ class Parser:
 class HTTPLogParser(Parser):
     """ Parses HTTP logs and generates WebEvent type of events """
 
-    def __init__(cls, processor: Processor, path: str):
+    def __init__(cls, processor: Processor, path: str, isMonitor: bool = False):
         super().__init__(processor)
         cls._log = logging.getLogger(__name__)
         cls._path = path
+        cls._isMonitor = isMonitor
 
-    def parse(cls) -> None:
-        """ Parse raw data from log file and generate log event object """
-
-        log = cls._log
-        log.info(f"Monitoring HTTP log file {cls._path}")
+    def _parseHttpLogFile(cls, position: int = 0) -> int:
         try:
             with open(cls._path, mode="r") as fd:
+                fd.seek(position)
                 logreader = csv.reader(fd)
 
-                # Skip header if exists
-                header = next(logreader)
-                if len(header) > 0 and header[0] != "remotehost":
-                    log.debug("No header")
-                    fd.seek(0)
-                else:
-                    log.debug(f"Header: {header}")
+                try:
+                    # Skip header iff one exists
+                    header = next(logreader)
+                    if len(header) > 0 and header[0] != "remotehost":
+                        cls._log.debug("No header")
+                        fd.seek(position)
+                    else:
+                        cls._log.debug(f"Header: {header}")
+                except StopIteration as e:
+                    # E.g. Occurs when polling end of file
+                    cls._log.debug("Nothing to read")
+                    pass
 
                 # Parse rows in best-effort mode (skip any bad lines)
                 # and generate WebEvents to send for processing
                 for row in logreader:
                     if cls._isSanitised(row):
                         cls._generateEvent(row)
-
+                return fd.tell()
         except FileNotFoundError as e:
             log.error(f"HTTP log file doesn't exist: {cls._path}")
         except csv.Error as ce:
             log.error(f"HTTP log file not valid CSV: {cls._path}")
+
+    def parse(cls) -> None:
+        """ Parse raw data from log file and generate log event object """
+        cls._log.info(f"Monitoring HTTP log file {cls._path}")
+        position = 0
+        while True:
+            position = cls._parseHttpLogFile(position)
+            if not cls._isMonitor:
+                break
+            # Sleep for x seconds
+            time.sleep(os.getenv("DD_LOG_MONITOR_TIME", 1))
 
     def _isSanitised(cls, row: typing.List[str]) -> bool:
         """ Sanitise row columns data types and parse data within as needed. """
