@@ -3,9 +3,9 @@ import datetime
 from os import getenv
 from event import Event, WebEvent
 from action import Action
-from typing import Counter, Optional
+from typing import Counter, Optional, Any
 from collections import Counter
-from sortedcontainers import SortedList
+from sortedcontainers import SortedList  # type: ignore
 
 
 class Processor:
@@ -35,7 +35,7 @@ class StatsProcessor(Processor):
         # Collect events in a SortedList due to out-of-order possibility.
         #  O(n*log(n)), otherwise O(n) with a deque() instead.
         # (SortedList read/remove/insert are O(log(n)) each)
-        cls._events: list[WebEvent] = SortedList()
+        cls._events: Any = SortedList()
         cls._statsInterval = datetime.timedelta(seconds=statsInterval)
         cls._statsOldestEventDiscounted: Optional[WebEvent] = None
 

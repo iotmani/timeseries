@@ -28,6 +28,17 @@ class HTTPLogParser(Parser):
         cls._path = path
         cls._isMonitorMode = isMonitorMode
 
+    def parse(cls) -> None:
+        """ Parse raw data from log file and generate log event object """
+        cls._log.info(f"Monitoring HTTP log file {cls._path}")
+        position = 0
+        while True:
+            position = cls._parseHttpLogFile(position)
+            if not cls._isMonitorMode:
+                break
+            # Sleep for x seconds
+            time.sleep(float(os.getenv("DD_LOG_MONITOR_TIME", 1.0)))
+
     def _parseHttpLogFile(cls, position: int = 0) -> int:
         try:
             with open(cls._path, mode="r") as fd:
@@ -53,22 +64,12 @@ class HTTPLogParser(Parser):
                         # and generate WebEvents to send for processing
                         cls._generateEvent(row)
                 return fd.tell()
-
         except FileNotFoundError as e:
-            log.error(f"HTTP log file doesn't exist: {cls._path}")
+            cls._log.error(f"HTTP log file doesn't exist: {cls._path}")
         except csv.Error as ce:
-            log.error(f"HTTP log file not valid CSV: {cls._path}")
-
-    def parse(cls) -> None:
-        """ Parse raw data from log file and generate log event object """
-        cls._log.info(f"Monitoring HTTP log file {cls._path}")
-        position = 0
-        while True:
-            position = cls._parseHttpLogFile(position)
-            if not cls._isMonitorMode:
-                break
-            # Sleep for x seconds
-            time.sleep(os.getenv("DD_LOG_MONITOR_TIME", 1))
+            cls._log.error(f"HTTP log file not valid CSV: {cls._path}")
+        # Return original position if any issues
+        return position
 
     def _isSanitised(cls, row: typing.List[str]) -> bool:
         """ Sanitise row columns data types and parse data within as needed. """
