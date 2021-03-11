@@ -42,11 +42,12 @@ def main():
     else:
         logging.basicConfig(level=logging.INFO)
 
-    # Construct HTTP-specific logs parser, to be analyzed by a stats processor, and displayed in a terminal notification handler
+    # Construct HTTP-specific logs parser, to be analyzed by a stats processor, and
+    # displayed in a terminal notification handler
     HTTPLogParser(
         StatsProcessor(
             TerminalNotifier(),
-            statsInterval=args.stats_interval,
+            mostCommonStatsInterval=args.stats_interval,
             highTrafficAvgThreshold=args.high_traffic_threshold,
             highTrafficInterval=args.high_traffic_time_interval,
         ),

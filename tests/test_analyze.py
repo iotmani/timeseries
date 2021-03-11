@@ -1,7 +1,7 @@
 import unittest
 from event import WebEvent, Event
 from action import Action
-from analyze import StatsProcessor, Processor
+from analyze import StatsProcessor, Processor, WindowedCalculator
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock
 
@@ -24,21 +24,22 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
             request=None,
         )
 
-    def testHighTrafficCheck(cls):
+    def testHighTrafficAlerts(cls):
         """ Test high traffic and back to normal alerting """
 
         action = MagicMock()
-        proc = StatsProcessor(action)
+        # Deactivate other stats calculation to only focus on High Traffic
+        # And calculate average over past 2 mins
+        # Set High Traffic threshold to x messages during the interval
+        proc = StatsProcessor(
+            action,
+            mostCommonStatsInterval=-1,
+            highTrafficInterval=120,
+            highTrafficAvgThreshold=3,
+        )
+
         # Fix now to an easier to reason about
         now = datetime.strptime("2020-01-01 00:00:00.000000", "%Y-%m-%d %H:%M:%S.%f")
-
-        # Deactivate other stats calculation to only focus on High Traffic
-        proc._statsInterval = timedelta(-1)
-
-        # I.e. calculate average over past 2 mins
-        proc._highTrafficInterval = timedelta(seconds=120)
-        # Set High Traffic threshold to x messages during the interval
-        proc._highTrafficAvgThreshold = 3
 
         # From normal to High traffic
         e0 = cls._makeEvent(now + timedelta(minutes=0))
@@ -103,23 +104,23 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
         )
         action.notify.assert_called_with(alertHighTraffic)
 
-    def testCalculateStats(cls):
+    def testMostCommonStats(cls):
         """Test that we generate stats only when expected,
         and with only the relevant events"""
 
         action = MagicMock()
-        proc = StatsProcessor(action)
+        # Deactivate high traffic calculation
+        proc = StatsProcessor(
+            action, mostCommonStatsInterval=10, highTrafficInterval=-1
+        )
         # Set now time so we add logs relative to that
         now = datetime.strptime("2020-01-01 00:00:00.000000", "%Y-%m-%d %H:%M:%S.%f")
-
-        proc._statsInterval = timedelta(seconds=10)
-        proc._highTrafficInterval = timedelta(-1)  # Deactivate
 
         e1 = cls._makeEvent(now - timedelta(minutes=30))
         proc.consume(e1)
         cls.assertEqual(
             now - timedelta(minutes=30),
-            proc._timeLastCollectedStats,
+            proc._statsCalculators[0]._timeLastCollectedStats,
             "Time last collected stats must equal first and only event's time",
         )
         cls.assertEqual(
@@ -145,7 +146,7 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
         action.notify.assert_called_with(expectedAlert1)
 
         cls.assertEqual(
-            proc._timeLastCollectedStats,
+            proc._statsCalculators[0]._timeLastCollectedStats,
             e2Recent.time,
             "Time last collected status must equal latest event",
         )
@@ -212,14 +213,17 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
         # Expected new frequency event to be generated
         action.notify.assert_called_with(action3Expected)
 
-    def testHighTrafficAndStatsTogether(cls):
+    def testHighTrafficWithMostCommonCalculators(cls):
         """Ensure no unenxpected interference when running both,
         and with different interval windows.
         """
 
         action = MagicMock()
         proc = StatsProcessor(
-            action, statsInterval=120, highTrafficInterval=60, highTrafficAvgThreshold=1
+            action,
+            mostCommonStatsInterval=120,
+            highTrafficInterval=60,
+            highTrafficAvgThreshold=1,
         )
 
         # Consume a bunch of web events
@@ -247,8 +251,20 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
         )
         action.notify.assert_called_with(alert)
 
-    def testProcessorNotImplemented(cls):
-        " Just for better code coverage "
+    def testNotImplemented(cls):
+        "For better code coverage "
+
         with cls.assertRaises(NotImplementedError):
             e = cls._makeEvent("2021-03-05")
             Processor(Action()).consume(e)
+
+        with cls.assertRaises(NotImplementedError):
+            WindowedCalculator(Action()).count(cls._makeEvent("2021-03-05"))
+
+        with cls.assertRaises(NotImplementedError):
+            WindowedCalculator(Action())._removeFromCalculation(
+                cls._makeEvent("2021-03-05")
+            )
+
+        with cls.assertRaises(NotImplementedError):
+            WindowedCalculator(Action())._triggerAlert(cls._makeEvent("2021-03-05"))

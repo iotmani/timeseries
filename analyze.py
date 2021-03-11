@@ -9,9 +9,10 @@ from sortedcontainers import SortedList  # type: ignore
 
 
 class Processor:
-    """ Collect and analyzes parsed log entries, and infer higher-level events """
+    """ Collect and analyze log events, then trigger higher-level alerts """
 
     def __init__(cls, action: Action):
+        # Action to notify
         cls._action = action
 
     def consume(cls, event: Event) -> None:
@@ -20,152 +21,220 @@ class Processor:
 
 
 class StatsProcessor(Processor):
-    """ Analyzes sourced traffic events """
+    """
+    Analyzes web-request events and triggers alerts based on statistics around
+    the numbers of requests and their content.
+
+    More specifically, this class implements the Processor interface and calls
+    different stats calculators on the collected set of events to process.
+    """
 
     def __init__(
         cls,
         action: Action,
-        statsInterval=10,
+        mostCommonStatsInterval=10,
         highTrafficAvgThreshold=10,
         highTrafficInterval=120,
     ):
         super().__init__(action)
-        cls._log = logging.getLogger(__name__)
-
+        # Initialize calculators, each with its own time-window size
+        cls._statsCalculators = [
+            MostCommonCalculator(action, mostCommonStatsInterval),
+            HighTrafficCalculator(action, highTrafficInterval, highTrafficAvgThreshold),
+        ]
+        # Cache max sliding window size
+        cls._widestWindowSize = max(
+            [calc.getWindowSize() for calc in cls._statsCalculators]
+        )
         # Collect events in a SortedList due to out-of-order possibility.
-        #  O(n*log(n)), otherwise O(n) with a deque() instead.
-        # (SortedList read/remove/insert are O(log(n)) each)
         cls._events: Any = SortedList()
-        cls._statsInterval = datetime.timedelta(seconds=statsInterval)
-        cls._statsOldestEventDiscounted: Optional[WebEvent] = None
 
-        # Used for general traffic stats
+    def consume(cls, newestEvent: WebEvent) -> None:  # type: ignore[override]
+        """Consume sourced traffic entry, calculate stats and volume changes in traffic"""
+
+        cls._events.add(newestEvent)
+
+        # Remove all entries that fall out from start of the widest window interval,
+        # updating calculations along the way
+        cls._removeOldEvents(newestEvent)
+
+        # Add new event to calculations
+        for calc in cls._statsCalculators:
+            calc.count(newestEvent)
+
+    def _removeOldEvents(cls, newestEvent: WebEvent) -> None:
+        "Remove one or more events that have fallen out of any calculators' time-intervals"
+
+        # Remove from collected list of events
+        while newestEvent.time - cls._events[0].time > cls._widestWindowSize:
+            outdatedEvent = cls._events.pop(0)
+            logging.debug(f"Removed outdated event {outdatedEvent.time}.")
+            for calc in cls._statsCalculators:
+                calc.discount(outdatedEvent, newestEvent)
+
+        # Starting from oldest event, let each calculator remove from its calculations any
+        # events that have fallen outside window intervals, given the newest one
+        for e in cls._events:
+            isRemovedFromCalculation = False
+            for calc in cls._statsCalculators:
+                if calc.discount(e, newestEvent):
+                    isRemovedFromCalculation = True
+
+            # Keep attempting until event is discounted from every calculator's window
+            if not isRemovedFromCalculation:
+                break
+
+
+class WindowedCalculator:
+    "Interface for implementing different kinds of statistics calculation on a window of events"
+
+    def __init__(cls, action: Action, windowSizeInSeconds=10):
+        # Time window required for calculations
+        cls._WINDOW_SIZE_DELTA = datetime.timedelta(seconds=windowSizeInSeconds)
+
+        # To trigger any alerts if needed
+        cls._action = action
+
+        # Start time of sliding window specific to this calculator
+        # Window could be smaller than the main window of collected events
+        # Window is any time after this, i.e.:
+        #   _windowStartsAfterEvent.time < newestEvent - _WINDOW_SIZE_DELTA <= newestEvent
+        cls._windowStartsAfterEvent: Optional[WebEvent] = None
+
+    def getWindowSize(cls) -> datetime.timedelta:
+        "Size of time window this calculator requires to function"
+        return cls._WINDOW_SIZE_DELTA
+
+    def _isWithinWindow(cls, oldEvent: WebEvent, newestEvent: WebEvent) -> bool:
+        "Check if given event falls within window interval relative to the newest event"
+        return (
+            # Ensure window is positive, in case it's deactivated
+            cls._WINDOW_SIZE_DELTA > datetime.timedelta(0)
+            # And time difference within the window size
+            and newestEvent.time - oldEvent.time <= cls._WINDOW_SIZE_DELTA
+        ) and (
+            cls._windowStartsAfterEvent is None
+            # TODO this used to be <=
+            or (
+                oldEvent.time > cls._windowStartsAfterEvent.time
+                and oldEvent != cls._windowStartsAfterEvent
+            )
+        )
+
+    def discount(cls, e: WebEvent, newestEvent) -> bool:
+        "Check event as it may or may not the sliding window, return true if it did"
+        if cls._isWithinWindow(oldEvent=e, newestEvent=newestEvent):
+            cls._removeFromCalculation(e)
+            cls._windowStartsAfterEvent = e
+            return True
+        # We didn't delete anything as it was outside the window anyway
+        return False
+
+    def count(cls, event: WebEvent) -> None:
+        "Consume an event as it enters in the sliding window interval"
+        raise NotImplementedError()
+
+    def _removeFromCalculation(cls, event: WebEvent) -> None:
+        "Implement to perform the actual removal from overall calculation of out of window event"
+        raise NotImplementedError()
+
+    def _triggerAlert(cls, event: WebEvent) -> None:
+        "Implement to check if conditions are met for sending any alerting"
+        raise NotImplementedError()
+
+
+class HighTrafficCalculator(WindowedCalculator):
+    "Trigger alert if average traffic crosses the given threshold or returns back to normal"
+
+    def __init__(
+        cls, action: Action, windowSizeInSeconds=120, highTrafficAvgThreshold=10
+    ):
+        super().__init__(action, windowSizeInSeconds)
+
+        cls._highTrafficAvgThreshold: int = highTrafficAvgThreshold
+        cls._highTrafficAlertMode = False
+        cls._highTrafficTotalCount: int = 0
+
+    def count(cls, e: WebEvent) -> None:
+        "Count to use in high traffic average"
+        cls._highTrafficTotalCount += 1
+        cls._triggerAlert(e)
+
+    def _removeFromCalculation(cls, e: WebEvent) -> None:
+        cls._highTrafficTotalCount -= 1
+        cls._triggerAlert(e)
+
+    def _triggerAlert(cls, latestEvent: WebEvent) -> None:
+
+        if cls.getWindowSize() < datetime.timedelta(0):
+            # Negative interval, skip check
+            logging.debug("High traffic checks deactivated")
+            return
+
+        now = latestEvent.time
+
+        timeInterval = cls._WINDOW_SIZE_DELTA.total_seconds()
+        # average = int(cls._highTrafficTotalCount / max(1, timeInterval))
+        average = cls._highTrafficTotalCount
+
+        logging.debug(f"High traffic average: {average}")
+        # Fire only if average exceeds threshold
+        if average > cls._highTrafficAvgThreshold and not cls._highTrafficAlertMode:
+            alertHighTraffic: Event = Event(
+                time=now,
+                priority=Event.Priority.HIGH,
+                message="High traffic generated an alert - "
+                f"hits {average}, triggered at {now}",
+            )
+            cls._action.notify(alertHighTraffic)
+            cls._highTrafficAlertMode = True
+            logging.debug(f"High traffic, fired {alertHighTraffic}")
+
+        # If back to normal again, alert only once
+        if average <= cls._highTrafficAvgThreshold and cls._highTrafficAlertMode:
+            alertBackToNormal: Event = Event(
+                time=now,
+                priority=Event.Priority.HIGH,
+                message=f"Traffic is now back to normal as of {now}",
+            )
+            cls._action.notify(alertBackToNormal)
+            cls._highTrafficAlertMode = False
+            logging.debug(f"High traffic back to normal, fired {alertBackToNormal}")
+
+
+class MostCommonCalculator(WindowedCalculator):
+    "Keeps track of most common source, most common section in a given time-interval"
+
+    def __init__(cls, action: Action, windowSizeInSeconds=10):
+        super().__init__(action, windowSizeInSeconds)
+
+        # Used for counting "most common" traffic stats
         cls._timeLastCollectedStats: Optional[datetime.datetime] = None
         cls._countSections: Counter[str] = Counter()
         cls._countSources: Counter[str] = Counter()
 
-        # Used for high traffic alerts
-        cls._highTrafficInterval = datetime.timedelta(seconds=highTrafficInterval)
-        cls._highTrafficAvgThreshold = highTrafficAvgThreshold
-        cls._highTrafficAlertMode = False
-        cls._highTrafficOldestEventDiscounted: Optional[WebEvent] = None
-        cls._highTrafficTotalCount: int = 0
+    def _removeFromCalculation(cls, e: WebEvent) -> None:
+        logging.debug(f"Removing old event from most common stats: {e.time}")
+        cls._countSections[e.section] -= 1
+        cls._countSources[e.source] -= 1
+        # No need to update calculation for this calculator at 'discount'
+        # Alerts can only be generated when we add a new one
 
-    def _discountEvent(cls, e: WebEvent) -> bool:
-        """
-        Discounts event from all calculations,
-        returns true if at least one calculation type  removed it
-        """
-
-        isDiscounted = False
-        timeTillNow = cls._events[-1].time - e.time
-        # Remove events that are now outside interval for stats calculation
-        # Cache and stop at previously removed event so we don't discount it multiple times.
-        if (
-            cls._statsInterval > datetime.timedelta(0)  # In case it's deactivated
-            and timeTillNow > cls._statsInterval
-        ) and (
-            cls._statsOldestEventDiscounted is None
-            or (
-                e.time <= cls._statsOldestEventDiscounted.time
-                and e != cls._highTrafficOldestEventDiscounted
-            )
-        ):
-            cls._log.debug(f"Removing old event from most common stats: {e.time}")
-            cls._countSections[e.section] -= 1
-            cls._countSources[e.source] -= 1
-
-            # Only set the window start if it has been reset
-            # due to reaching it, otherwise we'd overrite with an earlier time
-            if (
-                not cls._statsOldestEventDiscounted
-                or cls._statsOldestEventDiscounted.time < e.time
-            ):
-                cls._statsOldestEventDiscounted = e
-            isDiscounted = True
-
-        # Discount from high traffic stats if applicable
-        # Cache and stop at previously removed event so we don't discount it multiple times.
-        if (
-            cls._highTrafficInterval > datetime.timedelta(0)  # In case it's deactivated
-            and timeTillNow > cls._highTrafficInterval
-        ) and (
-            cls._highTrafficOldestEventDiscounted is None
-            or (
-                e.time <= cls._highTrafficOldestEventDiscounted.time
-                and e != cls._highTrafficOldestEventDiscounted
-            )
-        ):
-            cls._log.debug(f"Removing event outside High Traffic window: {e.time}")
-            cls._highTrafficTotalCount -= 1
-            isDiscounted = True
-            if (
-                not cls._highTrafficOldestEventDiscounted
-                or cls._highTrafficOldestEventDiscounted.time < e.time
-            ):
-                cls._highTrafficOldestEventDiscounted = e
-
-        return isDiscounted
-
-    def _removeAndDiscountOldestEvents(cls) -> None:
-        # Start from oldest event and remove those that have gone outside widest interval
-        outdatedEvent = cls._events.pop(0)
-
-        # Invalidate cached left window if it is reached
-        if (
-            cls._statsOldestEventDiscounted
-            and outdatedEvent.time >= cls._statsOldestEventDiscounted.time
-        ):
-            cls._statsOldestEventDiscounted = None
-
-        if (
-            cls._highTrafficOldestEventDiscounted
-            and outdatedEvent.time >= cls._highTrafficOldestEventDiscounted.time
-        ):
-            cls._highTrafficOldestEventDiscounted = None
-
-        cls._discountEvent(outdatedEvent)
-        cls._log.debug(f"Removed outdated event {outdatedEvent.time}.")
-
-    def _countNewEvent(cls, e: WebEvent) -> None:
-        cls._log.debug(f"Counting log {e.section} from {e.source} at {e.time}")
+    def count(cls, e: WebEvent) -> None:
+        logging.debug(f"Counting log {e.section} from {e.source} at {e.time}")
         cls._countSections[e.section] += 1
         cls._countSources[e.source] += 1
+        cls._triggerAlert(e)
 
-        # Count to use in high traffic average
-        cls._highTrafficTotalCount += 1
+    def _triggerAlert(cls, latestEvent: WebEvent) -> None:
+        """ Refresh calculation, trigger alerts with most common sections/sources when applicable """
 
-    def consume(cls, webEvent: WebEvent) -> None:  # type: ignore[override]
-        """ Consume sourced traffic entry, calculate stats and volume changes in traffic """
-        cls._events.add(webEvent)
-
-        widestWindowStart = webEvent.time - max(
-            cls._statsInterval, cls._highTrafficInterval
-        )
-        # Remove all entries that fall out of widest window intervals
-        while cls._events[0].time < widestWindowStart:
-            cls._removeAndDiscountOldestEvents()
-
-        # Also update calculations for entries in smaller window intervals
-        # without removing any more events
-        for e in cls._events:
-            if not cls._discountEvent(e):
-                break
-        # Add new event to calculation and list of events
-        cls._countNewEvent(webEvent)
-
-        cls._calculateStats(webEvent)
-        cls._highTrafficChecks(webEvent)
-
-    def _calculateStats(cls, latestEvent: WebEvent) -> None:
-        """ General stats """
-
-        if cls._statsInterval < datetime.timedelta(0):
+        if cls.getWindowSize() < datetime.timedelta(0):
             # Negative interval -> Stats calculation are deactivated
             return
 
         cls._timeLastCollectedStats = cls._timeLastCollectedStats or latestEvent.time
-        if (latestEvent.time - cls._timeLastCollectedStats) < cls._statsInterval:
+        if (latestEvent.time - cls._timeLastCollectedStats) < cls.getWindowSize():
             # Latest event time hasn't yet crossed the full interval
             return
 
@@ -179,40 +248,6 @@ class StatsProcessor(Processor):
             + f"{mostCommonSource[0]} ({mostCommonSource[1]} requests)",
             time=latestEvent.time,
         )
-        cls._log.debug(f"Fired stats {statsEvent}")
+        logging.debug(f"Fired stats {statsEvent}")
         cls._action.notify(statsEvent)
         cls._timeLastCollectedStats = latestEvent.time
-
-    def _highTrafficChecks(cls, webEvent: WebEvent) -> None:
-
-        if cls._highTrafficInterval < datetime.timedelta(0):
-            # Negative interval, skip check
-            cls._log.debug("High traffic checks deactivated")
-            return
-
-        now = webEvent.time
-        average = cls._highTrafficTotalCount
-
-        cls._log.debug(f"High traffic average: {average}")
-        # Fire only if average exceeds threshold
-        if average > cls._highTrafficAvgThreshold and not cls._highTrafficAlertMode:
-            alertHighTraffic: Event = Event(
-                time=now,
-                priority=Event.Priority.HIGH,
-                message="High traffic generated an alert - "
-                f"hits {average}, triggered at {now}",
-            )
-            cls._action.notify(alertHighTraffic)
-            cls._highTrafficAlertMode = True
-            cls._log.debug(f"High traffic, fired {alertHighTraffic}")
-
-        # If back to normal again, alert only once
-        if average <= cls._highTrafficAvgThreshold and cls._highTrafficAlertMode:
-            alertBackToNormal: Event = Event(
-                time=now,
-                priority=Event.Priority.HIGH,
-                message=f"Traffic is now back to normal as of {now}",
-            )
-            cls._action.notify(alertBackToNormal)
-            cls._highTrafficAlertMode = False
-            cls._log.debug(f"High traffic back to normal, fired {alertBackToNormal}")
