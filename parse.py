@@ -33,13 +33,13 @@ class HTTPLogParser(Parser):
         cls._log.info(f"Monitoring HTTP log file {cls._path}")
         position = 0
         while True:
-            position = cls._parseHttpLogFile(position)
+            position = cls._parseFile(position)
             if not cls._isMonitorMode:
                 break
             # Sleep for x seconds
             time.sleep(float(os.getenv("DD_LOG_MONITOR_TIME", 1.0)))
 
-    def _parseHttpLogFile(cls, position: int = 0) -> int:
+    def _parseFile(cls, position: int = 0) -> int:
         try:
             with open(cls._path, mode="r") as fd:
                 fd.seek(position)

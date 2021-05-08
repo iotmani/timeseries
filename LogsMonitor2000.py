@@ -42,7 +42,7 @@ def main():
     else:
         logging.basicConfig(level=logging.INFO)
 
-    # Construct HTTP-specific logs parser, to be analyzed by a stats processor, and
+    # Construct the HTTP-specific logs parser, to be analyzed by a stats processor, and
     # displayed in a terminal notification handler
     HTTPLogParser(
         StatsProcessor(

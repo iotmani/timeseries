@@ -1,7 +1,7 @@
 import unittest
 from event import WebEvent, Event
 from action import Action
-from analyze import StatsProcessor, Processor, WindowedCalculator
+from analyze import StatsProcessor, Processor, WindowedCalculator, MostCommonCalculator
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock
 
@@ -116,10 +116,17 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
         # Set now time so we add logs relative to that
         now = datetime.strptime("2020-01-01 00:00:00.000000", "%Y-%m-%d %H:%M:%S.%f")
 
-        e1 = cls._makeEvent(now - timedelta(minutes=30))
-        proc.consume(e1)
+        e0 = cls._makeEvent(now + timedelta(minutes=0))
+        e1 = cls._makeEvent(now + timedelta(minutes=30, seconds=0))
+        e2 = cls._makeEvent(now + timedelta(minutes=30, seconds=5))
+        e3 = cls._makeEvent(now + timedelta(minutes=30, seconds=9))
+        e4 = cls._makeEvent(now + timedelta(minutes=30, seconds=10))
+        e5 = cls._makeEvent(now + timedelta(minutes=30, seconds=14))
+        e6 = cls._makeEvent(now + timedelta(minutes=30, seconds=58))
+
+        proc.consume(e0)
         cls.assertEqual(
-            now - timedelta(minutes=30),
+            e0.time,
             proc._statsCalculators[0]._timeLastCollectedStats,
             "Time last collected stats must equal first and only event's time",
         )
@@ -129,60 +136,58 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
             "No notification generated from first ever event",
         )
 
-        e2Recent = cls._makeEvent(now - timedelta(seconds=20))
-        e2Recent.section = "/api"
-        e2Recent.source = "NSA"
-        proc.consume(e2Recent)
+        e1.section = "/api"
+        e1.source = "NSA"
+        proc.consume(e1)
 
-        expectedAlert1 = Event(
+        alert1 = Event(
             priority=Event.Priority.MEDIUM,
             message="Most common section: "
-            + f"{e2Recent.section} (1 requests)"
+            + f"{e1.section} (1 requests)"
             + ", source: "
-            + f"{e2Recent.source} (1 requests)",
-            time=e2Recent.time,
+            + f"{e1.source} (1 requests)",
+            time=e1.time,
         )
-
-        action.notify.assert_called_with(expectedAlert1)
+        # Recent event causes 'common stats' alert
+        action.notify.assert_called_with(alert1)
 
         cls.assertEqual(
             proc._statsCalculators[0]._timeLastCollectedStats,
-            e2Recent.time,
+            e1.time,
             "Time last collected status must equal latest event",
         )
-
         cls.assertEqual(1, len(proc._events), "Only one kept within time interval")
-        e3TooRecent = cls._makeEvent(now - timedelta(seconds=15))
-        proc.consume(e3TooRecent)
+
+        # Too recent to trigger an alert
+        proc.consume(e2)
         cls.assertEqual(2, len(proc._events))
         action.notify.assert_called_once()
 
-        e4StillTooRecent = cls._makeEvent(now - timedelta(seconds=11))
-        proc.consume(e4StillTooRecent)
+        # Also too recent
+        proc.consume(e3)
         cls.assertEqual(
             3, len(proc._events), "Expecting exactly this many log events collected"
         )
         action.notify.assert_called_once()
 
-        e5NewIntervalCrossed = cls._makeEvent(now - timedelta(seconds=10))
-        proc.consume(e5NewIntervalCrossed)
+        # New interval crossed
+        proc.consume(e4)
         cls.assertEqual(4, len(proc._events))
 
-        action2Expected = Event(
+        alert2 = Event(
             priority=Event.Priority.MEDIUM,
             message="Most common section: "
-            + f"{e5NewIntervalCrossed.section} (4 requests)"
+            + f"{e4.section} (4 requests)"
             + ", source: "
-            + f"{e5NewIntervalCrossed.source} (3 requests)",
-            time=now - timedelta(seconds=10),
+            + f"{e4.source} (3 requests)",
+            time=e4.time,
         )
         # Expected new frequency event to be generated
         # Expected to only count new events since last generated, no overlapping points
-        action.notify.assert_called_with(action2Expected)
+        action.notify.assert_called_with(alert2)
 
         # Within new interval, shouldn't trigger another event
-        e6within = cls._makeEvent(now - timedelta(seconds=4))
-        proc.consume(e6within)
+        proc.consume(e5)
 
         cls.assertEqual(
             3, len(proc._events), "Expecting exactly this many log events collected"
@@ -193,25 +198,24 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
         )
 
         # New interval, should have just one event
-        e7newInterval = cls._makeEvent(now + timedelta(seconds=20))
-        e7newInterval.section = "/geocities"
-        e7newInterval.source = "8.8.8.8"
-        proc.consume(e7newInterval)
+        e6.section = "/geocities"
+        e6.source = "8.8.8.8"
+        proc.consume(e6)
 
         cls.assertEqual(
             1, len(proc._events), "Expecting exactly this many log events collected"
         )
 
-        action3Expected = Event(
+        alert3 = Event(
             priority=Event.Priority.MEDIUM,
             message="Most common section: "
-            + f"{e7newInterval.section} (1 requests)"
+            + f"{e6.section} (1 requests)"
             + ", source: "
-            + f"{e7newInterval.source} (1 requests)",
-            time=e7newInterval.time,
+            + f"{e6.source} (1 requests)",
+            time=e6.time,
         )
         # Expected new frequency event to be generated
-        action.notify.assert_called_with(action3Expected)
+        action.notify.assert_called_with(alert3)
 
     def testHighTrafficWithMostCommonCalculators(cls):
         """Ensure no unenxpected interference when running both,
@@ -268,3 +272,9 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
 
         with cls.assertRaises(NotImplementedError):
             WindowedCalculator(Action())._triggerAlert(cls._makeEvent("2021-03-05"))
+
+        with cls.assertRaises(ValueError):
+            MostCommonCalculator(Action()).count(123)
+
+        with cls.assertRaises(ValueError):
+            MostCommonCalculator(Action())._removeFromCalculation(123)

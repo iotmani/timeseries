@@ -1,5 +1,5 @@
 # Logs Monitor 2000
-Monitor your HTTP logs and see interesting statistics, or keep an eye on unusual traffic levels.
+Monitor your HTTP logs for interesting statistics, or keep an eye on unusual traffic levels.
 
 
 ## Usage
@@ -7,11 +7,11 @@ No additional libraries are needed to run the log monitor. Tested with Python 3.
 
 Simply pass a log file:
 
-`python main.py tests/small_sample_csv.txt`
+`python LogsMonitor2000.py tests/small_sample_csv.txt`
 
 For more options see help:
 
-```python main.py --help```
+```python LogsMonitor2000.py --help```
 
 
 ## Development
