@@ -1,7 +1,7 @@
-from event import Event
-from parse import HTTPLogParser
 from unittest import TestCase
 from unittest.mock import MagicMock
+from LogsMonitor2000.event import Event
+from LogsMonitor2000.parse import HTTPLogParser
 
 
 class TestHTTPLogParser(TestCase):

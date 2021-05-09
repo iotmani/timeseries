@@ -1,7 +1,7 @@
 import logging
-from parse import HTTPLogParser
-from action import TerminalNotifier
-from analyze import StatsProcessor
+from .parse import HTTPLogParser
+from .analyze import StatsProcessor
+from .action import TerminalNotifier
 from argparse import ArgumentParser
 
 

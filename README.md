@@ -7,11 +7,11 @@ No additional libraries are needed to run the log monitor. Tested with Python 3.
 
 Simply pass a log file:
 
-`python LogsMonitor2000.py tests/small_sample_csv.txt`
+`python -m LogsMonitor2000 tests/small_sample_csv.txt`
 
 For more options see help:
 
-```python LogsMonitor2000.py --help```
+```python -m LogsMonitor2000 --help```
 
 
 ## Development
@@ -29,18 +29,16 @@ We use the following packages during development:
 *  'coverage' for unit-test coverage reports,
 *  'mypy' for static type checking based on type-annotations.
 
-`pip install black coverage mypy`
-
-Alternatively, just create a virtual environment:
+Create a virtual environment:
 ```
-virtualenv venv
-source venv/Scripts/activate
+virtualenv .venv
+source .venv/Scripts/activate
 pip install -r requirements-dev.txt
 ```
 
-Run code coverage:
+Code coverage:
 
-`coverage run --omit '*/venv3/*,*/tests/*' -m unittest`
+`coverage run --omit '*/.venv/*,*/tests/*' -m unittest`
 
 Generate test-coverage report (html optional):
 
@@ -48,22 +46,26 @@ Generate test-coverage report (html optional):
 
 ```
 $ coverage report
-Name         Stmts   Miss  Cover
---------------------------------
-action.py       14      0   100%
-analyze.py      42      0   100%
-event.py        26      1    96%
---------------------------------
-TOTAL           82      1    99%
+Name                                    Stmts   Miss  Cover
+-----------------------------------------------------------
+LogsMonitor2000\__init__.py                 0      0   100%
+LogsMonitor2000\action.py                  20      0   100%
+LogsMonitor2000\analyze\__init__.py         1      0   100%
+LogsMonitor2000\analyze\calculator.py      88      0   100%
+LogsMonitor2000\analyze\processor.py       37      0   100%
+LogsMonitor2000\event.py                   26      0   100%
+LogsMonitor2000\parse.py                   68     19    72%
+-----------------------------------------------------------
+TOTAL                                     240     19    92%
 ```
 
 Mypy:
 
-`mypy LogMonitor2000.py`
+`mypy LogMonitor2000`
 
 Profilng:
 
-`python -m profile -s 'tottime' LogsMonitor2000.py tests/sample_csv.txt`
+`python -m profile -s 'tottime' -m LogsMonitor2000 tests/sample_csv.txt`
 
 Then `deactivate` when done.
 
@@ -72,7 +74,7 @@ Architecture
 ------------
 
 This is made of a parser, analyzer and action modules.
-Each part tries to do one thing and passes data to the next stage thanks to forward dependency and dependency injection.
+Each part tries to do one thing and passes data to the next stage thanks to forward-dependency and dependency-injection (Inversion of Control).
 
 This way, an Action to display to terminal doesn't do any data analysis, the processor doesn't care whether events were HTTP logs or information brought by piegeon, the parser does just the input reading and sanitation. 
 
@@ -97,4 +99,4 @@ The TerminalNotifier action class displays the calculated statistics and importa
 Other 'Action' classes can be implemented such as sending an email notification, or calling an external API.
 
 
-We can easily add e.g. multiple processors/actions instances to notify in a publish-subscribe form as the project grows.
+We can later add e.g. multiple processors/actions instances to notify in a publish-subscribe form as the project grows.

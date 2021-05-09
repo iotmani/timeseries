@@ -3,8 +3,8 @@ import csv
 import time
 import typing
 import logging
-from event import WebEvent
-from analyze import Processor
+from .event import WebEvent
+from .analyze import Processor
 from datetime import datetime
 
 

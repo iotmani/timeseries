@@ -1,8 +1,8 @@
-from event import Event
-from action import TerminalNotifier, Action
 from datetime import datetime
 from unittest import TestCase
 from unittest.mock import patch
+from LogsMonitor2000.event import Event
+from LogsMonitor2000.action import TerminalNotifier, Action
 
 
 class TestActionTerminalNotifier(TestCase):

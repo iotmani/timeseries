@@ -4,3 +4,4 @@ __pycache__/
 archive/
 .coverage
 .venv
+htmlcov

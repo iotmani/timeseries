@@ -1,9 +1,10 @@
 import unittest
-from event import WebEvent, Event
-from action import Action
-from analyze import StatsProcessor, Processor, WindowedCalculator, MostCommonCalculator
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock
+from LogsMonitor2000.event import WebEvent, Event
+from LogsMonitor2000.action import Action
+from LogsMonitor2000.analyze import StatsProcessor, Processor
+from LogsMonitor2000.analyze.calculator import WindowedCalculator, MostCommonCalculator
 
 
 class TestAnalyzeAlgorithms(unittest.TestCase):
