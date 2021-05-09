@@ -88,7 +88,7 @@ Additional protocols or sources can just implement the Parser interface.
 
 **Analyze**
 
-StatsProcessor class collects sourced log events and uses statistics to determine e.g. if there's a high level of traffic within the past x minutes. If so, it generates a traffic events that need to be actioned somehow.
+AnalyticsProcessor class collects sourced log events and uses statistics to determine e.g. if there's a high level of traffic within the past x minutes. If so, it generates a traffic events that need to be actioned somehow.
 
 Other 'Processor' classes can be implemented, such as persisting the data into a time-series database.
 

@@ -1,17 +1,16 @@
 import logging
 import datetime
-from typing import Counter, Optional, Any
-from ..event import Event, WebEvent
+from typing import Optional
+from ..event import Event
 from ..action import Action
-from collections import Counter
 
 
-class WindowedCalculator:
+class StreamCalculator:
     "Interface for implementing different kinds of statistics calculation on a window of events"
 
     def __init__(cls, action: Action, windowSizeInSeconds=10):
         # Time window required for calculations
-        cls._WINDOW_SIZE_DELTA = datetime.timedelta(seconds=windowSizeInSeconds)
+        cls._windowSize = datetime.timedelta(seconds=windowSizeInSeconds)
 
         # To trigger any alerts if needed
         cls._action = action
@@ -19,16 +18,16 @@ class WindowedCalculator:
         # Start time of sliding window specific to this calculator
         # Window could be smaller than the main window of collected events
         # Window is any time after this, i.e.:
-        #   _windowStartsAfterEvent.time < newestEvent - _WINDOW_SIZE_DELTA <= newestEvent
+        #   _windowStartsAfterEvent.time < newestEvent - _windowSize <= newestEvent
         cls._windowStartsAfterEvent: Optional[Event] = None
 
     def getWindowSize(cls) -> datetime.timedelta:
         "Time-window length this calculator requires to function"
-        return cls._WINDOW_SIZE_DELTA
+        return cls._windowSize
 
     def _isWithinWindow(cls, oldEvent: Event, newestEvent: Event) -> bool:
         "Check if given event falls within window interval relative to the newest event"
-        return newestEvent.time - oldEvent.time <= cls._WINDOW_SIZE_DELTA and (
+        return newestEvent.time - oldEvent.time <= cls._windowSize and (
             cls._windowStartsAfterEvent is None
             # TODO this used to be <=
             or (
@@ -57,119 +56,3 @@ class WindowedCalculator:
     def _triggerAlert(cls, event: Event) -> None:
         "Implement to check if conditions are met for sending any alerting"
         raise NotImplementedError()
-
-
-class HighTrafficCalculator(WindowedCalculator):
-    "Trigger alert if average traffic crosses the given threshold or returns back to normal"
-
-    def __init__(
-        cls, action: Action, windowSizeInSeconds=120, highTrafficAvgThreshold=10
-    ):
-        super().__init__(action, windowSizeInSeconds)
-
-        cls._highTrafficAvgThreshold: int = highTrafficAvgThreshold
-        cls._highTrafficAlertMode = False
-        cls._highTrafficTotalCount: int = 0
-
-    def count(cls, e: Event) -> None:
-        "Count to use in high traffic average"
-        cls._highTrafficTotalCount += 1
-        cls._triggerAlert(e)
-
-    def _removeFromCalculation(cls, e: Event) -> None:
-        cls._highTrafficTotalCount -= 1
-        cls._triggerAlert(e)
-
-    def _triggerAlert(cls, latestEvent: Event) -> None:
-
-        if cls._WINDOW_SIZE_DELTA < datetime.timedelta(0):
-            # Negative interval, skip check
-            logging.debug("High traffic checks deactivated")
-            return
-
-        now = latestEvent.time
-
-        timeInterval = cls._WINDOW_SIZE_DELTA.total_seconds()
-        # average = int(cls._highTrafficTotalCount / max(1, timeInterval))
-        average = cls._highTrafficTotalCount
-
-        logging.debug(f"High traffic average: {average}")
-        # Fire only if average exceeds threshold
-        if average > cls._highTrafficAvgThreshold and not cls._highTrafficAlertMode:
-            alertHighTraffic: Event = Event(
-                time=now,
-                priority=Event.Priority.HIGH,
-                message="High traffic generated an alert - "
-                f"hits {average}, triggered at {now}",
-            )
-            cls._action.notify(alertHighTraffic)
-            cls._highTrafficAlertMode = True
-            logging.debug(f"High traffic, fired {alertHighTraffic}")
-
-        # If back to normal again, alert only once
-        if average <= cls._highTrafficAvgThreshold and cls._highTrafficAlertMode:
-            alertBackToNormal: Event = Event(
-                time=now,
-                priority=Event.Priority.HIGH,
-                message=f"Traffic is now back to normal as of {now}",
-            )
-            cls._action.notify(alertBackToNormal)
-            cls._highTrafficAlertMode = False
-            logging.debug(f"High traffic back to normal, fired {alertBackToNormal}")
-
-
-class MostCommonCalculator(WindowedCalculator):
-    "Keeps track of most common source, most common section in a given time-interval"
-
-    def __init__(cls, action: Action, windowSizeInSeconds=10):
-        super().__init__(action, windowSizeInSeconds)
-
-        # Used for counting "most common" traffic stats
-        cls._timeLastCollectedStats: Optional[datetime.datetime] = None
-        cls._countSections: Counter[str] = Counter()
-        cls._countSources: Counter[str] = Counter()
-
-    def _removeFromCalculation(cls, e: WebEvent) -> None:  # type: ignore
-        if type(e) is not WebEvent:
-            raise ValueError(f"Expected WebEvent for: {e}")
-        logging.debug(f"Removing old event from most common stats: {e.time}")
-        cls._countSections[e.section] -= 1
-        cls._countSources[e.source] -= 1
-        # No need to update calculation for this calculator at 'discount'
-        # Alerts can only be generated when we add a new one
-
-    def count(cls, e: WebEvent) -> None:  # type: ignore
-        if type(e) is not WebEvent:
-            raise ValueError(f"Expected WebEvent for: {e}")
-
-        logging.debug(f"Counting log {e.section} from {e.source} at {e.time}")
-        cls._countSections[e.section] += 1
-        cls._countSources[e.source] += 1
-        cls._triggerAlert(e)
-
-    def _triggerAlert(cls, latestEvent: Event) -> None:
-        """ Refresh calculation, trigger alerts with most common sections/sources when applicable """
-
-        if cls._WINDOW_SIZE_DELTA < datetime.timedelta(0):
-            # Negative interval -> Stats calculation are deactivated
-            return
-
-        cls._timeLastCollectedStats = cls._timeLastCollectedStats or latestEvent.time
-        if (latestEvent.time - cls._timeLastCollectedStats) < cls._WINDOW_SIZE_DELTA:
-            # Latest event time hasn't yet crossed the full interval
-            return
-
-        mostCommonSection = cls._countSections.most_common(1)[0]
-        mostCommonSource = cls._countSources.most_common(1)[0]
-
-        statsEvent = Event(
-            priority=Event.Priority.MEDIUM,
-            message="Most common section: "
-            + f"{mostCommonSection[0]} ({mostCommonSection[1]} requests)"
-            + ", source: "
-            + f"{mostCommonSource[0]} ({mostCommonSource[1]} requests)",
-            time=latestEvent.time,
-        )
-        cls._action.notify(statsEvent)
-        logging.debug(f"Fired stats alert {statsEvent}")
-        cls._timeLastCollectedStats = latestEvent.time

@@ -3,8 +3,9 @@ from datetime import datetime, timedelta
 from unittest.mock import MagicMock
 from LogsMonitor2000.event import WebEvent, Event
 from LogsMonitor2000.action import Action
-from LogsMonitor2000.analyze import StatsProcessor, Processor
-from LogsMonitor2000.analyze.calculator import WindowedCalculator, MostCommonCalculator
+from LogsMonitor2000.analyze import Processor, AnalyticsProcessor
+from LogsMonitor2000.analyze.calculator import StreamCalculator
+from LogsMonitor2000.analyze.mostCommonCalculator import MostCommonCalculator
 
 
 class TestAnalyzeAlgorithms(unittest.TestCase):
@@ -32,7 +33,7 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
         # Deactivate other stats calculation to only focus on High Traffic
         # And calculate average over past 2 mins
         # Set High Traffic threshold to x messages during the interval
-        proc = StatsProcessor(
+        proc = AnalyticsProcessor(
             action,
             mostCommonStatsInterval=-1,
             highTrafficInterval=120,
@@ -111,7 +112,7 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
 
         action = MagicMock()
         # Deactivate high traffic calculation
-        proc = StatsProcessor(
+        proc = AnalyticsProcessor(
             action, mostCommonStatsInterval=10, highTrafficInterval=-1
         )
         # Set now time so we add logs relative to that
@@ -224,7 +225,7 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
         """
 
         action = MagicMock()
-        proc = StatsProcessor(
+        proc = AnalyticsProcessor(
             action,
             mostCommonStatsInterval=120,
             highTrafficInterval=60,
@@ -264,15 +265,15 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
             Processor(Action()).consume(e)
 
         with cls.assertRaises(NotImplementedError):
-            WindowedCalculator(Action()).count(cls._makeEvent("2021-03-05"))
+            StreamCalculator(Action()).count(cls._makeEvent("2021-03-05"))
 
         with cls.assertRaises(NotImplementedError):
-            WindowedCalculator(Action())._removeFromCalculation(
+            StreamCalculator(Action())._removeFromCalculation(
                 cls._makeEvent("2021-03-05")
             )
 
         with cls.assertRaises(NotImplementedError):
-            WindowedCalculator(Action())._triggerAlert(cls._makeEvent("2021-03-05"))
+            StreamCalculator(Action())._triggerAlert(cls._makeEvent("2021-03-05"))
 
         with cls.assertRaises(ValueError):
             MostCommonCalculator(Action()).count(123)

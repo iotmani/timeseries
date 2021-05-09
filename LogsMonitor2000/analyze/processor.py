@@ -3,8 +3,9 @@ import datetime
 from typing import Optional, Any
 from ..event import Event, WebEvent
 from ..action import Action
-from .calculator import WindowedCalculator, MostCommonCalculator, HighTrafficCalculator
 from sortedcontainers import SortedList  # type: ignore
+from .mostCommonCalculator import MostCommonCalculator
+from .highTrafficCalculator import HighTrafficCalculator
 
 
 class Processor:
@@ -19,7 +20,7 @@ class Processor:
         raise NotImplementedError()
 
 
-class StatsProcessor(Processor):
+class AnalyticsProcessor(Processor):
     """
     Analyzes web-request events and triggers alerts based on statistics around
     the numbers of requests and their content.

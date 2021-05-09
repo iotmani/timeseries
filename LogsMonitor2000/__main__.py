@@ -1,6 +1,6 @@
 import logging
 from .parse import HTTPLogParser
-from .analyze import StatsProcessor
+from .analyze import AnalyticsProcessor
 from .action import TerminalNotifier
 from argparse import ArgumentParser
 
@@ -45,7 +45,7 @@ def main():
     # Construct the HTTP-specific logs parser, to be analyzed by a stats processor, and
     # displayed in a terminal notification handler
     HTTPLogParser(
-        StatsProcessor(
+        AnalyticsProcessor(
             TerminalNotifier(),
             mostCommonStatsInterval=args.stats_interval,
             highTrafficAvgThreshold=args.high_traffic_threshold,
