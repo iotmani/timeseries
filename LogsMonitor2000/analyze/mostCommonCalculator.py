@@ -1,5 +1,5 @@
 import logging
-import datetime
+from datetime import datetime
 from typing import Counter, Optional, Any
 from ..event import Event, WebLogEvent
 from ..action import Action
@@ -14,7 +14,7 @@ class MostCommonCalculator(StreamCalculator):
         super().__init__(action, windowSizeInSeconds)
 
         # Used for counting "most common" traffic stats
-        self._timeLastCollectedStats: Optional[datetime.datetime] = None
+        self._timeLastCollectedStats: Optional[datetime] = None
         self._countSections: Counter[str] = Counter()
         self._countSources: Counter[str] = Counter()
 
@@ -38,11 +38,6 @@ class MostCommonCalculator(StreamCalculator):
 
     def _triggerAlert(self, latestEvent: Event) -> None:
         """ Refresh calculation, trigger alerts with most common sections/sources when applicable """
-
-        if self._windowSize < datetime.timedelta(0):
-            # Negative interval -> Stats calculation are deactivated
-            return
-
         self._timeLastCollectedStats = self._timeLastCollectedStats or latestEvent.time
         if (latestEvent.time - self._timeLastCollectedStats) < self._windowSize:
             # Latest event time hasn't yet crossed the full interval

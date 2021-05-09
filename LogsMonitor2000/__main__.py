@@ -1,37 +1,38 @@
 import logging
+from argparse import ArgumentParser
+
 from .parse import HTTPLogParser
 from .analyze import AnalyticsProcessor
 from .action import TerminalNotifier
-from argparse import ArgumentParser
 
 
 def main():
     """ Extract data from logs, analyze them and take appropriate actions """
     argsParser = ArgumentParser(description="Parse HTTP logs and monitor traffic")
-    argsParser.add_argument("logfile", help="HTTP log path, e.g. tests/sample_csv.txt")
+    argsParser.add_argument("file", help="HTTP log path, e.g. tests/sample_csv.txt")
     argsParser.add_argument("--verbose", help="Print DEBUG lines", action="store_true")
     argsParser.add_argument(
         "--stats_interval",
-        help="Print general stats every x seconds",
+        help="Print general requests statistics every x seconds",
         type=int,
         default=10,
     )
     argsParser.add_argument(
-        "--high_traffic_threshold",
-        help="Number of requests to exceed within a time interval in order to trigger an alert",
-        type=int,
-        default=10,
-    )
-    argsParser.add_argument(
-        "--high_traffic_time_interval",
-        help="Window length in seconds in which we check for high traffic",
+        "--high_traffic_interval",
+        help="Monitor high traffic over window size of x seconds",
         type=int,
         default=120,
     )
+    argsParser.add_argument(
+        "--high_traffic_threshold",
+        help="Number of requests to exceed within that interval in order to trigger an alert",
+        type=int,
+        default=10,
+    )
 
     argsParser.add_argument(
-        "--monitor",
-        help="continuous file watching for updates",
+        "--follow",
+        help="Continuously watch file for updates, similar to `tail --follow`",
         action="store_true",
     )
 
@@ -48,11 +49,11 @@ def main():
         AnalyticsProcessor(
             TerminalNotifier(),
             mostCommonStatsInterval=args.stats_interval,
-            highTrafficAvgThreshold=args.high_traffic_threshold,
-            highTrafficInterval=args.high_traffic_time_interval,
+            highTrafficInterval=args.high_traffic_interval,
+            highTrafficThreshold=args.high_traffic_threshold,
         ),
-        path=args.logfile,
-        isMonitorMode=args.monitor,
+        path=args.file,
+        isFollowMode=args.follow,
     ).parse()
 
 

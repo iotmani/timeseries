@@ -4,6 +4,7 @@ from typing import Optional, Any
 from ..event import Event, WebLogEvent
 from ..action import Action
 from sortedcontainers import SortedList  # type: ignore
+from .calculator import StreamCalculator
 from .mostCommonCalculator import MostCommonCalculator
 from .highTrafficCalculator import HighTrafficCalculator
 
@@ -22,34 +23,40 @@ class Processor:
 
 class AnalyticsProcessor(Processor):
     """
-    Analyzes web-request events and triggers alerts based on statistics around
-    the numbers of requests and their content.
+    Analyzes web-request log events and triggers alerts based on statistics
+    e.g. the numbers of requests and their content.
 
     More specifically, this class implements the Processor interface and calls
-    different stats calculators on the collected set of events to process.
+    calculator functions on the stream of log events.
     """
 
     def __init__(
         self,
         action: Action,
         mostCommonStatsInterval=10,
-        highTrafficAvgThreshold=10,
+        highTrafficThreshold=10,
         highTrafficInterval=120,
     ):
         super().__init__(action)
         # Initialize calculators, each with its own time-window size
-        self._statsCalculators = [
-            MostCommonCalculator(action, mostCommonStatsInterval),
-            HighTrafficCalculator(action, highTrafficInterval, highTrafficAvgThreshold),
-        ]
-        # Cache max sliding window size
+        self._statsCalculators: list[StreamCalculator] = []
+        if mostCommonStatsInterval > 0:
+            self._statsCalculators.append(
+                MostCommonCalculator(action, mostCommonStatsInterval)
+            )
+
+        # Only add calculator if its parameters are valid
+        if highTrafficThreshold > 0 and highTrafficInterval > 0:
+            self._statsCalculators.append(
+                HighTrafficCalculator(action, highTrafficInterval, highTrafficThreshold)
+            )
+
+        # Cache max sliding window size as we'll use it often
         self._largestWindow = max(
             [calc.getWindowSize() for calc in self._statsCalculators]
         )
         # Collect events in a SortedList due to out-of-order possibility.
         self._events: Any = SortedList()
-
-        self._isFirst = False
 
     def consume(self, newestEvent: Event) -> None:
         """Consume sourced traffic entry, calculate stats and volume changes in traffic"""

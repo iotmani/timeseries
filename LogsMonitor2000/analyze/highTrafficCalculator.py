@@ -1,5 +1,4 @@
 import logging
-import datetime
 from typing import Optional, Any
 from ..event import Event
 from ..action import Action
@@ -10,11 +9,11 @@ class HighTrafficCalculator(StreamCalculator):
     "Trigger alert if average number of requests crosses the given threshold or returns back to normal"
 
     def __init__(
-        self, action: Action, windowSizeInSeconds=120, highTrafficAvgThreshold=10
+        self, action: Action, windowSizeInSeconds=120, highTrafficThreshold=10
     ):
         super().__init__(action, windowSizeInSeconds)
 
-        self._threshold: int = highTrafficAvgThreshold
+        self._threshold: int = highTrafficThreshold
         self._alertMode = False
         self._totalCount: int = 0
 
@@ -28,14 +27,7 @@ class HighTrafficCalculator(StreamCalculator):
         self._triggerAlert(e)
 
     def _triggerAlert(self, latestEvent: Event) -> None:
-
-        if self._windowSize < datetime.timedelta(0):
-            # Negative interval, skip check
-            logging.debug("High traffic checks deactivated")
-            return
-
         now = latestEvent.time
-
         timeInterval = self._windowSize.total_seconds()
         # average = int(self._totalCount / max(1, timeInterval))
         average = self._totalCount

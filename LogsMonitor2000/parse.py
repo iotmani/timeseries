@@ -22,11 +22,11 @@ class Parser:
 class HTTPLogParser(Parser):
     """ Parses HTTP logs and generates WebLogEvent type of events """
 
-    def __init__(self, processor: Processor, path: str, isMonitorMode: bool = False):
+    def __init__(self, processor: Processor, path: str, isFollowMode: bool = False):
         super().__init__(processor)
         self._log = logging.getLogger(__name__)
         self._path = path
-        self._isMonitorMode = isMonitorMode
+        self._isFollowMode = isFollowMode
 
     def parse(self) -> None:
         """ Parse raw data from log file and generate log event object """
@@ -34,7 +34,7 @@ class HTTPLogParser(Parser):
         position = 0
         while True:
             position = self._parseFile(position)
-            if not self._isMonitorMode:
+            if not self._isFollowMode:
                 break
             # Sleep for x seconds
             time.sleep(float(os.getenv("DD_LOG_MONITOR_TIME", 1.0)))

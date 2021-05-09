@@ -37,7 +37,7 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
             action,
             mostCommonStatsInterval=-1,
             highTrafficInterval=120,
-            highTrafficAvgThreshold=3,
+            highTrafficThreshold=3,
         )
 
         # Fix now to an easier to reason about
@@ -231,7 +231,7 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
             action,
             mostCommonStatsInterval=120,
             highTrafficInterval=60,
-            highTrafficAvgThreshold=1,
+            highTrafficThreshold=1,
         )
 
         # Consume a bunch of web events
