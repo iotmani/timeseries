@@ -3,7 +3,7 @@ import csv
 import time
 import typing
 import logging
-from .event import WebEvent
+from .event import WebLogEvent
 from .analyze import Processor
 from datetime import datetime
 
@@ -20,7 +20,7 @@ class Parser:
 
 
 class HTTPLogParser(Parser):
-    """ Parses HTTP logs and generates WebEvent type of events """
+    """ Parses HTTP logs and generates WebLogEvent type of events """
 
     def __init__(self, processor: Processor, path: str, isMonitorMode: bool = False):
         super().__init__(processor)
@@ -61,7 +61,7 @@ class HTTPLogParser(Parser):
                 # Parse rows in best-effort mode (skip any bad lines)
                 for row in logreader:
                     if self._isSanitised(row):
-                        # and generate WebEvents to send for processing
+                        # and generate WebLogEvents to send for processing
                         self._generateEvent(row)
                 return fd.tell()
         except FileNotFoundError as e:
@@ -96,8 +96,8 @@ class HTTPLogParser(Parser):
         """ Build event object from pre-sanitised data and send for processing """
 
         timestamp = datetime.fromtimestamp(int(row[3]))
-        e = WebEvent(
-            priority=WebEvent.Priority.MEDIUM,
+        e = WebLogEvent(
+            priority=WebLogEvent.Priority.MEDIUM,
             source=row[0],
             rfc931=row[1],
             authuser=row[2],

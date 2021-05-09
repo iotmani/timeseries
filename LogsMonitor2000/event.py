@@ -26,7 +26,7 @@ class Event:
 
 
 @dataclass
-class WebEvent(Event):
+class WebLogEvent(Event):
     """ Represents an individual Web traffic event """
 
     rfc931: str

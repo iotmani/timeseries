@@ -1,7 +1,7 @@
 import unittest
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock
-from LogsMonitor2000.event import WebEvent, Event
+from LogsMonitor2000.event import WebLogEvent, Event
 from LogsMonitor2000.action import Action
 from LogsMonitor2000.analyze import Processor, AnalyticsProcessor
 from LogsMonitor2000.analyze.calculator import StreamCalculator
@@ -13,9 +13,9 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
 
     def _makeEvent(self, time):
         """ Construct commonly required Event content where only time matters """
-        return WebEvent(
+        return WebLogEvent(
             time=time,
-            priority=WebEvent.Priority.MEDIUM,
+            priority=WebLogEvent.Priority.MEDIUM,
             message="Some log",
             rfc931=None,
             authuser=None,

@@ -1,7 +1,7 @@
 import logging
 import datetime
 from typing import Optional, Any
-from ..event import Event, WebEvent
+from ..event import Event, WebLogEvent
 from ..action import Action
 from sortedcontainers import SortedList  # type: ignore
 from .mostCommonCalculator import MostCommonCalculator

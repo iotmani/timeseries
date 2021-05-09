@@ -1,7 +1,7 @@
 import logging
 import datetime
 from typing import Counter, Optional, Any
-from ..event import Event, WebEvent
+from ..event import Event, WebLogEvent
 from ..action import Action
 from .calculator import StreamCalculator
 from collections import Counter
@@ -18,18 +18,18 @@ class MostCommonCalculator(StreamCalculator):
         self._countSections: Counter[str] = Counter()
         self._countSources: Counter[str] = Counter()
 
-    def _removeFromCalculation(self, e: WebEvent) -> None:  # type: ignore
-        if type(e) is not WebEvent:
-            raise ValueError(f"Expected WebEvent for: {e}")
+    def _removeFromCalculation(self, e: WebLogEvent) -> None:  # type: ignore
+        if type(e) is not WebLogEvent:
+            raise ValueError(f"Expected WebLogEvent for: {e}")
         logging.debug(f"Removing old event from most common stats: {e.time}")
         self._countSections[e.section] -= 1
         self._countSources[e.source] -= 1
         # No need to update calculation for this calculator at 'discount'
         # Alerts can only be generated when we add a new one
 
-    def count(self, e: WebEvent) -> None:  # type: ignore
-        if type(e) is not WebEvent:
-            raise ValueError(f"Expected WebEvent for: {e}")
+    def count(self, e: WebLogEvent) -> None:  # type: ignore
+        if type(e) is not WebLogEvent:
+            raise ValueError(f"Expected WebLogEvent for: {e}")
 
         logging.debug(f"Counting log {e.section} from {e.source} at {e.time}")
         self._countSections[e.section] += 1
