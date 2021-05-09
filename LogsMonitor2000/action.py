@@ -4,7 +4,7 @@ from .event import Event
 class Action:
     """ Interface for taking action based on events """
 
-    def notify(cls, message: Event) -> None:
+    def notify(self, message: Event) -> None:
         raise NotImplementedError()
 
 
@@ -19,7 +19,7 @@ class TerminalNotifier(Action):
 
     _HEADER_WDTH = 80
 
-    def __init__(cls):
+    def __init__(self):
         # Print header at start
         # ================================================================================
         # |                              Logs Monitor 2000                               |
@@ -27,18 +27,18 @@ class TerminalNotifier(Action):
         print("=" * TerminalNotifier._HEADER_WDTH)
         print(
             "|"
-            + cls.Colors.BOLD
+            + self.Colors.BOLD
             + "Logs Monitor 2000".center(TerminalNotifier._HEADER_WDTH - 2)
-            + cls.Colors.ENDC
+            + self.Colors.ENDC
             + "|"
         )
         print("=" * TerminalNotifier._HEADER_WDTH)
 
-    def notify(cls, e: Event) -> None:
+    def notify(self, e: Event) -> None:
         """ Not exactly sophisticated but it does the job"""
         if e.priority > Event.Priority.MEDIUM:
-            color = cls.Colors.RED
+            color = self.Colors.RED
         else:
-            color = cls.Colors.BOLD
+            color = self.Colors.BOLD
 
-        print(f"{color}{e.time}{cls.Colors.ENDC} - {e.message}")
+        print(f"{color}{e.time}{self.Colors.ENDC} - {e.message}")

@@ -11,7 +11,7 @@ from LogsMonitor2000.analyze.mostCommonCalculator import MostCommonCalculator
 class TestAnalyzeAlgorithms(unittest.TestCase):
     "Test analyze module functions"
 
-    def _makeEvent(cls, time):
+    def _makeEvent(self, time):
         """ Construct commonly required Event content where only time matters """
         return WebEvent(
             time=time,
@@ -26,7 +26,7 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
             request=None,
         )
 
-    def testHighTrafficAlerts(cls):
+    def testHighTrafficAlerts(self):
         """ Test high traffic and back to normal alerting """
 
         action = MagicMock()
@@ -44,20 +44,20 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
         now = datetime.strptime("2020-01-01 00:00:00.000000", "%Y-%m-%d %H:%M:%S.%f")
 
         # From normal to High traffic
-        e0 = cls._makeEvent(now + timedelta(minutes=0))
-        e1 = cls._makeEvent(now + timedelta(minutes=1))
-        e2 = cls._makeEvent(now + timedelta(minutes=2))
-        e3 = cls._makeEvent(now + timedelta(minutes=3))
-        e4 = cls._makeEvent(now + timedelta(minutes=3))
-        e5 = cls._makeEvent(now + timedelta(minutes=4))
+        e0 = self._makeEvent(now + timedelta(minutes=0))
+        e1 = self._makeEvent(now + timedelta(minutes=1))
+        e2 = self._makeEvent(now + timedelta(minutes=2))
+        e3 = self._makeEvent(now + timedelta(minutes=3))
+        e4 = self._makeEvent(now + timedelta(minutes=3))
+        e5 = self._makeEvent(now + timedelta(minutes=4))
         proc.consume(e0)
         proc.consume(e1)
         proc.consume(e2)
-        cls.assertEqual(3, len(proc._events), "All events collected")
+        self.assertEqual(3, len(proc._events), "All events collected")
         proc.consume(e3)
-        cls.assertEqual(3, len(proc._events), "First event is outside window")
+        self.assertEqual(3, len(proc._events), "First event is outside window")
         # Ensure no high traffic alerts were fired
-        cls.assertEqual(0, action.notify.call_count, "Did not reach threshold")
+        self.assertEqual(0, action.notify.call_count, "Did not reach threshold")
 
         proc.consume(e4)
         # Check High alert fired
@@ -72,10 +72,12 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
         # Only generate alert once if we continue to cross threshold
         proc.consume(e5)
         action.notify.assert_called_once()
-        cls.assertEqual(4, len(proc._events), "First two events are now outside window")
+        self.assertEqual(
+            4, len(proc._events), "First two events are now outside window"
+        )
 
         # Back to normal also generates alert
-        e6 = cls._makeEvent(now + timedelta(minutes=6))
+        e6 = self._makeEvent(now + timedelta(minutes=6))
         proc.consume(e6)
         alertBackToNormal = Event(
             time=e6.time,
@@ -84,17 +86,17 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
         )
         action.notify.assert_called_with(alertBackToNormal)
 
-        e7 = cls._makeEvent(now + timedelta(minutes=9))
+        e7 = self._makeEvent(now + timedelta(minutes=9))
         proc.consume(e7)
-        cls.assertEqual(
+        self.assertEqual(
             2, action.notify.call_count, "No more alerts as traffic stays low"
         )
-        cls.assertEqual(1, len(proc._events), "Only one event collected")
+        self.assertEqual(1, len(proc._events), "Only one event collected")
 
         # Traffic up, alert High again
-        e8 = cls._makeEvent(now + timedelta(minutes=9))
-        e9 = cls._makeEvent(now + timedelta(minutes=9))
-        e10 = cls._makeEvent(now + timedelta(minutes=9))
+        e8 = self._makeEvent(now + timedelta(minutes=9))
+        e9 = self._makeEvent(now + timedelta(minutes=9))
+        e10 = self._makeEvent(now + timedelta(minutes=9))
         proc.consume(e8)
         proc.consume(e9)
         proc.consume(e10)
@@ -106,7 +108,7 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
         )
         action.notify.assert_called_with(alertHighTraffic)
 
-    def testMostCommonStats(cls):
+    def testMostCommonStats(self):
         """Test that we generate stats only when expected,
         and with only the relevant events"""
 
@@ -118,21 +120,21 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
         # Set now time so we add logs relative to that
         now = datetime.strptime("2020-01-01 00:00:00.000000", "%Y-%m-%d %H:%M:%S.%f")
 
-        e0 = cls._makeEvent(now + timedelta(minutes=0))
-        e1 = cls._makeEvent(now + timedelta(minutes=30, seconds=0))
-        e2 = cls._makeEvent(now + timedelta(minutes=30, seconds=5))
-        e3 = cls._makeEvent(now + timedelta(minutes=30, seconds=9))
-        e4 = cls._makeEvent(now + timedelta(minutes=30, seconds=10))
-        e5 = cls._makeEvent(now + timedelta(minutes=30, seconds=14))
-        e6 = cls._makeEvent(now + timedelta(minutes=30, seconds=58))
+        e0 = self._makeEvent(now + timedelta(minutes=0))
+        e1 = self._makeEvent(now + timedelta(minutes=30, seconds=0))
+        e2 = self._makeEvent(now + timedelta(minutes=30, seconds=5))
+        e3 = self._makeEvent(now + timedelta(minutes=30, seconds=9))
+        e4 = self._makeEvent(now + timedelta(minutes=30, seconds=10))
+        e5 = self._makeEvent(now + timedelta(minutes=30, seconds=14))
+        e6 = self._makeEvent(now + timedelta(minutes=30, seconds=58))
 
         proc.consume(e0)
-        cls.assertEqual(
+        self.assertEqual(
             e0.time,
             proc._statsCalculators[0]._timeLastCollectedStats,
             "Time last collected stats must equal first and only event's time",
         )
-        cls.assertEqual(
+        self.assertEqual(
             0,
             action.notify.call_count,
             "No notification generated from first ever event",
@@ -153,28 +155,28 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
         # Recent event causes 'common stats' alert
         action.notify.assert_called_with(alert1)
 
-        cls.assertEqual(
+        self.assertEqual(
             proc._statsCalculators[0]._timeLastCollectedStats,
             e1.time,
             "Time last collected status must equal latest event",
         )
-        cls.assertEqual(1, len(proc._events), "Only one kept within time interval")
+        self.assertEqual(1, len(proc._events), "Only one kept within time interval")
 
         # Too recent to trigger an alert
         proc.consume(e2)
-        cls.assertEqual(2, len(proc._events))
+        self.assertEqual(2, len(proc._events))
         action.notify.assert_called_once()
 
         # Also too recent
         proc.consume(e3)
-        cls.assertEqual(
+        self.assertEqual(
             3, len(proc._events), "Expecting exactly this many log events collected"
         )
         action.notify.assert_called_once()
 
         # New interval crossed
         proc.consume(e4)
-        cls.assertEqual(4, len(proc._events))
+        self.assertEqual(4, len(proc._events))
 
         alert2 = Event(
             priority=Event.Priority.MEDIUM,
@@ -191,11 +193,11 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
         # Within new interval, shouldn't trigger another event
         proc.consume(e5)
 
-        cls.assertEqual(
+        self.assertEqual(
             3, len(proc._events), "Expecting exactly this many log events collected"
         )
 
-        cls.assertEqual(
+        self.assertEqual(
             2, action.notify.call_count, "No more events should be generated"
         )
 
@@ -204,7 +206,7 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
         e6.source = "8.8.8.8"
         proc.consume(e6)
 
-        cls.assertEqual(
+        self.assertEqual(
             1, len(proc._events), "Expecting exactly this many log events collected"
         )
 
@@ -219,7 +221,7 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
         # Expected new frequency event to be generated
         action.notify.assert_called_with(alert3)
 
-    def testHighTrafficWithMostCommonCalculators(cls):
+    def testHighTrafficWithMostCommonCalculators(self):
         """Ensure no unenxpected interference when running both,
         and with different interval windows.
         """
@@ -235,16 +237,16 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
         # Consume a bunch of web events
         now = datetime.strptime("2020-01-01 00:00:00.000000", "%Y-%m-%d %H:%M:%S.%f")
 
-        proc.consume(cls._makeEvent(now + timedelta(minutes=0)))
-        proc.consume(cls._makeEvent(now + timedelta(minutes=1)))
-        proc.consume(cls._makeEvent(now + timedelta(minutes=2)))
-        proc.consume(cls._makeEvent(now + timedelta(minutes=3)))
-        proc.consume(cls._makeEvent(now + timedelta(minutes=3)))
-        proc.consume(cls._makeEvent(now + timedelta(minutes=4)))
-        eventFinal = cls._makeEvent(now + timedelta(minutes=7))
+        proc.consume(self._makeEvent(now + timedelta(minutes=0)))
+        proc.consume(self._makeEvent(now + timedelta(minutes=1)))
+        proc.consume(self._makeEvent(now + timedelta(minutes=2)))
+        proc.consume(self._makeEvent(now + timedelta(minutes=3)))
+        proc.consume(self._makeEvent(now + timedelta(minutes=3)))
+        proc.consume(self._makeEvent(now + timedelta(minutes=4)))
+        eventFinal = self._makeEvent(now + timedelta(minutes=7))
         proc.consume(eventFinal)
 
-        cls.assertEqual(
+        self.assertEqual(
             5,
             action.notify.call_count,
             "Expected this many stats and high traffic alerts",
@@ -257,26 +259,26 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
         )
         action.notify.assert_called_with(alert)
 
-    def testNotImplemented(cls):
+    def testNotImplemented(self):
         "For better code coverage "
 
-        with cls.assertRaises(NotImplementedError):
-            e = cls._makeEvent("2021-03-05")
+        with self.assertRaises(NotImplementedError):
+            e = self._makeEvent("2021-03-05")
             Processor(Action()).consume(e)
 
-        with cls.assertRaises(NotImplementedError):
-            StreamCalculator(Action()).count(cls._makeEvent("2021-03-05"))
+        with self.assertRaises(NotImplementedError):
+            StreamCalculator(Action()).count(self._makeEvent("2021-03-05"))
 
-        with cls.assertRaises(NotImplementedError):
+        with self.assertRaises(NotImplementedError):
             StreamCalculator(Action())._removeFromCalculation(
-                cls._makeEvent("2021-03-05")
+                self._makeEvent("2021-03-05")
             )
 
-        with cls.assertRaises(NotImplementedError):
-            StreamCalculator(Action())._triggerAlert(cls._makeEvent("2021-03-05"))
+        with self.assertRaises(NotImplementedError):
+            StreamCalculator(Action())._triggerAlert(self._makeEvent("2021-03-05"))
 
-        with cls.assertRaises(ValueError):
+        with self.assertRaises(ValueError):
             MostCommonCalculator(Action()).count(123)
 
-        with cls.assertRaises(ValueError):
+        with self.assertRaises(ValueError):
             MostCommonCalculator(Action())._removeFromCalculation(123)

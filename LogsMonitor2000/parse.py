@@ -11,10 +11,10 @@ from datetime import datetime
 class Parser:
     """ Extract raw log data into an event object """
 
-    def __init__(cls, processor: Processor):
-        cls.processor = processor
+    def __init__(self, processor: Processor):
+        self.processor = processor
 
-    def parse(cls) -> None:
+    def parse(self) -> None:
         """ Parsing implementation here """
         raise NotImplementedError()
 
@@ -22,26 +22,26 @@ class Parser:
 class HTTPLogParser(Parser):
     """ Parses HTTP logs and generates WebEvent type of events """
 
-    def __init__(cls, processor: Processor, path: str, isMonitorMode: bool = False):
+    def __init__(self, processor: Processor, path: str, isMonitorMode: bool = False):
         super().__init__(processor)
-        cls._log = logging.getLogger(__name__)
-        cls._path = path
-        cls._isMonitorMode = isMonitorMode
+        self._log = logging.getLogger(__name__)
+        self._path = path
+        self._isMonitorMode = isMonitorMode
 
-    def parse(cls) -> None:
+    def parse(self) -> None:
         """ Parse raw data from log file and generate log event object """
-        cls._log.info(f"Monitoring HTTP log file {cls._path}")
+        self._log.info(f"Monitoring HTTP log file {self._path}")
         position = 0
         while True:
-            position = cls._parseFile(position)
-            if not cls._isMonitorMode:
+            position = self._parseFile(position)
+            if not self._isMonitorMode:
                 break
             # Sleep for x seconds
             time.sleep(float(os.getenv("DD_LOG_MONITOR_TIME", 1.0)))
 
-    def _parseFile(cls, position: int = 0) -> int:
+    def _parseFile(self, position: int = 0) -> int:
         try:
-            with open(cls._path, mode="r") as fd:
+            with open(self._path, mode="r") as fd:
                 fd.seek(position)
                 logreader = csv.reader(fd)
 
@@ -49,50 +49,50 @@ class HTTPLogParser(Parser):
                     # Skip header iff one exists
                     header = next(logreader)
                     if len(header) > 0 and header[0] != "remotehost":
-                        cls._log.debug("No header")
+                        self._log.debug("No header")
                         fd.seek(position)
                     else:
-                        cls._log.debug(f"Header: {header}")
+                        self._log.debug(f"Header: {header}")
                 except StopIteration as e:
                     # E.g. Occurs if empty file or polling end of file
-                    cls._log.debug("Nothing further to read")
+                    self._log.debug("Nothing further to read")
                     pass
 
                 # Parse rows in best-effort mode (skip any bad lines)
                 for row in logreader:
-                    if cls._isSanitised(row):
+                    if self._isSanitised(row):
                         # and generate WebEvents to send for processing
-                        cls._generateEvent(row)
+                        self._generateEvent(row)
                 return fd.tell()
         except FileNotFoundError as e:
-            cls._log.error(f"HTTP log file doesn't exist: {cls._path}")
+            self._log.error(f"HTTP log file doesn't exist: {self._path}")
         except csv.Error as ce:
-            cls._log.error(f"HTTP log file not valid CSV: {cls._path}")
+            self._log.error(f"HTTP log file not valid CSV: {self._path}")
         # Return original position if any issues
         return position
 
-    def _isSanitised(cls, row: typing.List[str]) -> bool:
+    def _isSanitised(self, row: typing.List[str]) -> bool:
         """ Sanitise row columns data types and parse data within as needed. """
         if len(row) != 7:
-            cls._log.warning(f"Malformed CSV row: {row}")
+            self._log.warning(f"Malformed CSV row: {row}")
             return False
 
         # Parse section out of request, i.e. row[4]
         section = row[4].split(" ")
         if len(section) < 2 or len(section[1].split("/")) < 2:
-            cls._log.warning(f"Malformed 'section' part of row: {row}")
+            self._log.warning(f"Malformed 'section' part of row: {row}")
             return False
         row.append("/" + section[1].split("/")[1])
 
         try:
             datetime.fromtimestamp(int(row[3]))
         except (ValueError, OverflowError, OSError) as e:
-            cls._log.warning(f"Malformed 'date' part of row: {row}")
+            self._log.warning(f"Malformed 'date' part of row: {row}")
             return False
 
         return True
 
-    def _generateEvent(cls, row: typing.List[str]) -> None:
+    def _generateEvent(self, row: typing.List[str]) -> None:
         """ Build event object from pre-sanitised data and send for processing """
 
         timestamp = datetime.fromtimestamp(int(row[3]))
@@ -108,4 +108,4 @@ class HTTPLogParser(Parser):
             size=row[6],
             message="",
         )
-        cls.processor.consume(e)
+        self.processor.consume(e)

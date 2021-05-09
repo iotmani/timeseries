@@ -17,12 +17,12 @@ class Event:
     message: str
     priority: Priority
 
-    def __lt__(cls, other) -> bool:
+    def __lt__(self, other) -> bool:
         " Ordered by time by default "
-        return cls.time < other.time
+        return self.time < other.time
 
-    def __repr__(cls) -> str:
-        return f"{cls.time} {cls.message}"
+    def __repr__(self) -> str:
+        return f"{self.time} {self.message}"
 
 
 @dataclass
