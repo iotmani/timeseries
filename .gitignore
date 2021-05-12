@@ -3,5 +3,5 @@ __pycache__/
 .vscode/
 archive/
 .coverage
-.venv
+.venv*
 htmlcov

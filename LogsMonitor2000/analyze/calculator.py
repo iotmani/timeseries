@@ -38,7 +38,7 @@ class StreamCalculator:
 
     def discount(self, e: Event, newestEvent) -> bool:
         "Check event as it may or may not the sliding window, return true if it did"
-        if self._isWithinWindow(oldEvent=e, newestEvent=newestEvent):
+        if not self._isWithinWindow(oldEvent=e, newestEvent=newestEvent):
             self._removeFromCalculation(e)
             self._windowStartsAfterEvent = e
             return True

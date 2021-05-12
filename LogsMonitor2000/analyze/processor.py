@@ -1,9 +1,11 @@
+import heapq
 import logging
-import datetime
-from typing import Optional, Any
+from datetime import datetime
+from typing import Any, Optional, Tuple
+from collections import deque
+
 from ..event import Event, WebLogEvent
 from ..action import Action
-from sortedcontainers import SortedList  # type: ignore
 from .calculator import StreamCalculator
 from .mostCommonCalculator import MostCommonCalculator
 from .highTrafficCalculator import HighTrafficCalculator
@@ -51,25 +53,62 @@ class AnalyticsProcessor(Processor):
                 HighTrafficCalculator(action, highTrafficInterval, highTrafficThreshold)
             )
 
-        # Cache max sliding window size as we'll use it often
+        # Cache largest sliding window size as we'll use it often
         self._largestWindow = max(
             [calc.getWindowSize() for calc in self._statsCalculators]
         )
-        # Collect events in a SortedList due to out-of-order possibility.
-        self._events: Any = SortedList()
+        # Assume events can come out of order for up to 2 seconds
+        self._BUFFER_TIME = 2
+        # Collect events in a heapq due to out-of-order arrival which is sometimes too late.
+        self._buffer: list[WebLogEvent] = []
+        # Collect sliding window events to count/discount in calculations as time progresses.
+        self._events: deque[WebLogEvent] = deque()
+        self._earliestBufferTime: int
 
-    def consume(self, newestEvent: Event) -> None:
+    def consume(self, newestEvent: WebLogEvent) -> None:  # type: ignore
         """Consume sourced traffic entry, calculate stats and volume changes in traffic"""
 
-        self._events.add(newestEvent)
+        if self._events and self._events[-1].time >= newestEvent.time:
+            logging.warning(
+                f"Dropped log event as arrived more than {self._BUFFER_TIME}s late: {newestEvent}"
+            )
+            return
 
-        # Remove all entries that fall out from start of the widest window interval,
-        # updating calculations along the way
-        self._removeOldEvents(newestEvent)
+        key = int(newestEvent.time.timestamp())
+        heapq.heappush(self._buffer, newestEvent)
+        self._earliestBufferTime = (
+            min(key, int(self._buffer[0].time.timestamp())) if self._buffer else key
+        )
+        # Check time diff between smallest (earliest) event and current
+        seconds = key - self._earliestBufferTime
+        # If still within buffer time, push new one to heap
+        if not self._buffer or seconds <= self._BUFFER_TIME:
+            logging.debug(
+                f"Only buffered event, earliest {self._earliestBufferTime}, now: {newestEvent.time}, diff {seconds}"
+            )
+            return
 
-        # Add new event to calculations
-        for calc in self._statsCalculators:
-            calc.count(newestEvent)
+        # discount all events in buffer
+        while (
+            newestEvent.time - self._buffer[0].time
+        ).total_seconds() > self._BUFFER_TIME:
+            e = heapq.heappop(self._buffer)
+            logging.debug(f"Flushing from buffer {e.time}")
+
+            # TODO change this to pair (time, [events]) ? so we remove all at once
+            # TODO therefore add support to count multiple, and discount multiple
+            self._events.append(e)
+            # Remove all entries that fall out from start of the widest window interval,
+            # updating calculations along the way
+            self._removeOldEvents(e)
+
+            # Add new event to calculations
+            for calc in self._statsCalculators:
+                calc.count(e)
+        else:
+            logging.debug(f"{e.time} is within buffer time")
+
+        self._earliestBufferTime = int(self._buffer[0].time.timestamp())
 
     def _removeOldEvents(self, newestEvent: Event) -> None:
         "Remove one or more events that have fallen out of any calculators' time-intervals"
@@ -79,7 +118,7 @@ class AnalyticsProcessor(Processor):
             self._events
             and newestEvent.time - self._events[0].time > self._largestWindow
         ):
-            outdatedEvent = self._events.pop(0)
+            outdatedEvent = self._events.popleft()
             logging.debug(f"Removed outdated event {outdatedEvent.time}.")
             for calc in self._statsCalculators:
                 calc.discount(outdatedEvent, newestEvent)

@@ -72,17 +72,16 @@ class HTTPLogParser(Parser):
         return position
 
     def _isSanitised(self, row: typing.List[str]) -> bool:
-        """ Sanitise row columns data types and parse data within as needed. """
+        """ Sanitise row columns data types """
         if len(row) != 7:
             self._log.warning(f"Malformed CSV row: {row}")
             return False
 
-        # Parse section out of request, i.e. row[4]
+        # Parseable section out of request, i.e. row[4]
         section = row[4].split(" ")
         if len(section) < 2 or len(section[1].split("/")) < 2:
             self._log.warning(f"Malformed 'section' part of row: {row}")
             return False
-        row.append("/" + section[1].split("/")[1])
 
         try:
             datetime.fromtimestamp(int(row[3]))
@@ -96,6 +95,7 @@ class HTTPLogParser(Parser):
         """ Build event object from pre-sanitised data and send for processing """
 
         timestamp = datetime.fromtimestamp(int(row[3]))
+        section = "/" + row[4].split(" ")[1].split("/")[1]
         e = WebLogEvent(
             priority=WebLogEvent.Priority.MEDIUM,
             source=row[0],
@@ -103,7 +103,7 @@ class HTTPLogParser(Parser):
             authuser=row[2],
             time=timestamp,
             request=row[4],
-            section=row[7],
+            section=section,
             status=row[5],
             size=row[6],
             message="",

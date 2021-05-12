@@ -99,4 +99,9 @@ The TerminalNotifier action class displays the calculated statistics and importa
 Other 'Action' classes can be implemented such as sending an email notification, or calling an external API.
 
 
-We can later add e.g. multiple processors/actions instances to notify in a publish-subscribe form as the project grows.
+**Scaling**
+Turn each of the parser/processor/action into a separate microservice, kafka-connected. 
+Parse and process sets of logs ingested from multiple server machines, sent possibly using the syslog protocol.
+Persist outputs from each step in a timeseries-db potentially for dynamic querying or further processing.
+
+We can add the support of multiple processors/actions instances to notify in a publish-subscribe form as the project grows.

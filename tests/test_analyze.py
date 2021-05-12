@@ -26,6 +26,95 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
             request=None,
         )
 
+    def testBufferFullFlush(self):
+        """Test bufferred out-of-order events t0 t1 t2 should be all processed once t5 comes in"""
+
+        action = MagicMock()
+        # Pick any one calculator, we only care about the buffer content
+        # Deactivate high traffic calculation
+        proc = AnalyticsProcessor(
+            action, mostCommonStatsInterval=10, highTrafficInterval=-1
+        )
+        # Set now time so we add logs relative to that
+        now = datetime.strptime("2020-01-01 00:00:00.000000", "%Y-%m-%d %H:%M:%S.%f")
+
+        e0 = self._makeEvent(now + timedelta(seconds=1))
+        e1 = self._makeEvent(now + timedelta(seconds=0))
+        e2 = self._makeEvent(now + timedelta(seconds=1))
+        e3 = self._makeEvent(now + timedelta(seconds=0))
+        e4 = self._makeEvent(now + timedelta(seconds=2))
+        e5 = self._makeEvent(now + timedelta(seconds=5))
+
+        proc.consume(e0)
+        proc.consume(e1)
+        proc.consume(e2)
+        proc.consume(e3)
+        proc.consume(e4)
+        proc.consume(e5)
+
+        self.assertEqual(5, len(proc._events))
+        self.assertEqual([e5], proc._buffer)
+
+    def testBufferFlushOnlyRelevant(self):
+        """
+        Test buffer flushing of only the events beyond the time
+        t1 t0 t2 t3, flushes only t0 and leaves t1 t2 t3
+        """
+
+        action = MagicMock()
+        # Pick any calculator, we only care about the buffer content
+        # Deactivate high traffic calculation
+        proc = AnalyticsProcessor(
+            action, mostCommonStatsInterval=10, highTrafficInterval=-1
+        )
+        # Set now time so we add logs relative to that
+        now = datetime.strptime("2020-01-01 00:00:00.000000", "%Y-%m-%d %H:%M:%S.%f")
+
+        e0 = self._makeEvent(now + timedelta(seconds=1))
+        e1 = self._makeEvent(now + timedelta(seconds=0))
+        e2 = self._makeEvent(now + timedelta(seconds=1))
+        e3 = self._makeEvent(now + timedelta(seconds=0))
+        e4 = self._makeEvent(now + timedelta(seconds=2))
+        e5 = self._makeEvent(now + timedelta(seconds=3))
+
+        proc.consume(e0)
+        proc.consume(e1)
+        proc.consume(e2)
+        proc.consume(e3)
+        proc.consume(e4)
+        proc.consume(e5)
+
+        self.assertEqual(2, len(proc._events))
+        self.assertEqual(4, len(proc._buffer))
+
+    def testBufferDropTooOld(self):
+        """ When t2 processed, and t4 t5 t6 in buffer, drop t1 as too late """
+
+        action = MagicMock()
+        # Pick any calculator, we only care about the buffer content
+        # Deactivate high traffic calculation
+        proc = AnalyticsProcessor(
+            action, mostCommonStatsInterval=10, highTrafficInterval=-1
+        )
+        # Set now time so we add logs relative to that
+        now = datetime.strptime("2020-01-01 00:00:00.000000", "%Y-%m-%d %H:%M:%S.%f")
+
+        e0 = self._makeEvent(now + timedelta(seconds=2))
+        e1 = self._makeEvent(now + timedelta(seconds=4))
+        e2 = self._makeEvent(now + timedelta(seconds=5))
+        e3 = self._makeEvent(now + timedelta(seconds=6))
+        e4 = self._makeEvent(now + timedelta(seconds=1))
+
+        proc.consume(e0)
+        proc.consume(e1)
+        proc.consume(e2)
+        proc.consume(e3)
+        proc.consume(e4)
+
+        self.assertEqual(1, len(proc._events))
+        self.assertEqual(3, len(proc._buffer))
+
+    @unittest.skip("Doesnt yet support buffer")
     def testHighTrafficAlerts(self):
         """ Test high traffic and back to normal alerting """
 
@@ -108,6 +197,7 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
         )
         action.notify.assert_called_with(alertHighTraffic)
 
+    @unittest.skip("Doesnt yet support buffer")
     def testMostCommonStats(self):
         """Test that we generate stats only when expected,
         and with only the relevant events"""
@@ -221,6 +311,72 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
         # Expected new frequency event to be generated
         action.notify.assert_called_with(alert3)
 
+    def testMostCommonStatsBuffered(self):
+        """
+        Test that we fire most common stats events only when expected,
+        and with only the relevant events.
+        """
+
+        action = MagicMock()
+        # Deactivate high traffic calculation
+        proc = AnalyticsProcessor(
+            action, mostCommonStatsInterval=10, highTrafficInterval=-1
+        )
+        # Set now time so we add logs relative to that
+        now = datetime.strptime("2020-01-01 00:00:00.000000", "%Y-%m-%d %H:%M:%S.%f")
+
+        e0 = self._makeEvent(now + timedelta(seconds=0))
+        e1 = self._makeEvent(now + timedelta(seconds=10))  # Event
+        e2 = self._makeEvent(now + timedelta(seconds=11))
+        e3 = self._makeEvent(now + timedelta(seconds=12))
+        e4 = self._makeEvent(now + timedelta(seconds=20))  # Event
+        e5 = self._makeEvent(now + timedelta(seconds=23))  # Buffer flush
+
+        e1.section = "/ping"
+        e1.source = "NSA"
+        e2.source = "NSA"
+        proc.consume(e0)
+        proc.consume(e1)
+        proc.consume(e2)
+        proc.consume(e3)
+        # Only first processed
+        self.assertEqual(
+            e0.time,
+            proc._statsCalculators[0]._timeLastCollectedStats,
+            "Time last collected stats must equal first and only event's time",
+        )
+
+        self.assertEqual(
+            0,
+            action.notify.call_count,
+            "No notification generated from first ever event",
+        )
+
+        proc.consume(e4)
+        proc.consume(e5)
+        self.assertEqual(
+            proc._statsCalculators[0]._timeLastCollectedStats,
+            e4.time,
+            "Time last collected status must equal latest processed event (excl buffered one)",
+        )
+        self.assertEqual(
+            4,
+            len(proc._events),
+            "Exactly this many processed and within sliding window",
+        )
+
+        # Recent event causes 'common stats' alert
+        alert1 = Event(
+            priority=Event.Priority.MEDIUM,
+            message="Most common section: "
+            + f"{e4.section} (3 requests)"
+            + ", source: "
+            + f"{e4.source} (2 requests)",
+            time=e4.time,
+        )
+        action.notify.assert_called_with(alert1)
+
+    @unittest.skip("Doesnt yet support buffer")
     def testHighTrafficWithMostCommonCalculators(self):
         """Ensure no unenxpected interference when running both,
         and with different interval windows.
@@ -258,6 +414,44 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
             message=f"Traffic is now back to normal as of {eventFinal.time}",
         )
         action.notify.assert_called_with(alert)
+
+    def testMostCommonStatsSpacedEvents(self):
+        """
+        Test behavior is correct when there's a large time difference between events
+        """
+
+        action = MagicMock()
+        # Deactivate high traffic calculation
+        proc = AnalyticsProcessor(
+            action, mostCommonStatsInterval=10, highTrafficInterval=-1
+        )
+        # Set now time so we add logs relative to that
+        now = datetime.strptime("2020-01-01 00:00:00.000000", "%Y-%m-%d %H:%M:%S.%f")
+
+        e0 = self._makeEvent(now + timedelta(minutes=0))
+        e1 = self._makeEvent(now + timedelta(minutes=1))  # Event, buffer flush
+        e2 = self._makeEvent(now + timedelta(minutes=2))  # Event, buffer flush
+        e3 = self._makeEvent(now + timedelta(minutes=3))  # Event, buffer flush
+        e4 = self._makeEvent(now + timedelta(minutes=4))  # Event, buffer flush
+        e5 = self._makeEvent(now + timedelta(minutes=5))  # Event, buffer flush
+
+        proc.consume(e0)
+        proc.consume(e1)
+        proc.consume(e2)
+        proc.consume(e3)
+        proc.consume(e4)
+        proc.consume(e5)
+        self.assertEqual(
+            e4.time,
+            proc._statsCalculators[0]._timeLastCollectedStats,
+            "Time last collected status must equal latest processed event (excl buffered one)",
+        )
+
+        self.assertEqual(
+            4,
+            action.notify.call_count,
+            "All processed except e5 buffered, all notified up to and excluding e4.",
+        )
 
     def testNotImplemented(self):
         "For better code coverage "
