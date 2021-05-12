@@ -13,7 +13,7 @@ class Event:
         HIGH = 2
         SEVERE = 3
 
-    time: datetime
+    time: int
     message: str
     priority: Priority
 
@@ -22,7 +22,7 @@ class Event:
         return self.time < other.time
 
     def __repr__(self) -> str:
-        return f"{self.time} {self.message}"
+        return f"{datetime.fromtimestamp(self.time)} {self.message}"
 
 
 @dataclass

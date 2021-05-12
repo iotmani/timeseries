@@ -1,5 +1,4 @@
 import logging
-from datetime import timedelta
 from typing import Optional
 from ..event import Event
 from ..action import Action
@@ -10,7 +9,7 @@ class StreamCalculator:
 
     def __init__(self, action: Action, windowSizeInSeconds=10):
         # Time window required for calculations
-        self._windowSize = timedelta(seconds=windowSizeInSeconds)
+        self._windowSize: int = windowSizeInSeconds
 
         # To trigger any alerts if needed
         self._action = action
@@ -21,7 +20,7 @@ class StreamCalculator:
         #   _windowStartsAfterEvent.time < newestEvent - _windowSize <= newestEvent
         self._windowStartsAfterEvent: Optional[Event] = None
 
-    def getWindowSize(self) -> timedelta:
+    def getWindowSize(self) -> int:
         "Time-window length this calculator requires to function"
         return self._windowSize
 

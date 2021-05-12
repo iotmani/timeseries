@@ -2,6 +2,7 @@ import logging
 from typing import Optional, Any
 from ..event import Event
 from ..action import Action
+from datetime import datetime
 from .calculator import StreamCalculator
 
 
@@ -28,7 +29,8 @@ class HighTrafficCalculator(StreamCalculator):
 
     def _triggerAlert(self, latestEvent: Event) -> None:
         now = latestEvent.time
-        timeInterval = self._windowSize.total_seconds()
+        # TODO io107
+        timeInterval = self._windowSize
         # average = int(self._totalCount / max(1, timeInterval))
         average = self._totalCount
 
@@ -39,7 +41,7 @@ class HighTrafficCalculator(StreamCalculator):
                 time=now,
                 priority=Event.Priority.HIGH,
                 message="High traffic generated an alert - "
-                f"hits {average}, triggered at {now}",
+                f"hits {average}, triggered at {datetime.fromtimestamp(now)}",
             )
             self._action.notify(alertHighTraffic)
             self._alertMode = True
@@ -50,7 +52,7 @@ class HighTrafficCalculator(StreamCalculator):
             alertBackToNormal: Event = Event(
                 time=now,
                 priority=Event.Priority.HIGH,
-                message=f"Traffic is now back to normal as of {now}",
+                message=f"Traffic is now back to normal as of {datetime.fromtimestamp(now)}",
             )
             self._action.notify(alertBackToNormal)
             self._alertMode = False

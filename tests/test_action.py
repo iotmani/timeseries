@@ -14,15 +14,19 @@ class TestActionTerminalNotifier(TestCase):
         event = Event(
             priority=Event.Priority.MEDIUM,
             message="Content",
-            time=datetime.fromisoformat("2021-03-05"),
+            time=1620796046,
         )
         n.notify(event)
         self.assertEqual(mock_print.call_count, 4)
-        mock_print.assert_called_with(f"\x1b[1m{event.time}\x1b[0m - {event.message}")
+        mock_print.assert_called_with(
+            f"\x1b[1m{datetime.fromtimestamp(event.time)}\x1b[0m - {event.message}"
+        )
 
         event.priority = Event.Priority.HIGH
         n.notify(event)
-        mock_print.assert_called_with(f"\x1b[91m{event.time}\x1b[0m - {event.message}")
+        mock_print.assert_called_with(
+            f"\x1b[91m{datetime.fromtimestamp(event.time)}\x1b[0m - {event.message}"
+        )
 
         # Just for better code coverage
         with self.assertRaises(NotImplementedError):

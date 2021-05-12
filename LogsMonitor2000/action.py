@@ -1,4 +1,5 @@
 from .event import Event
+from datetime import datetime
 
 
 class Action:
@@ -41,4 +42,6 @@ class TerminalNotifier(Action):
         else:
             color = self.Colors.BOLD
 
-        print(f"{color}{e.time}{self.Colors.ENDC} - {e.message}")
+        print(
+            f"{color}{datetime.fromtimestamp(e.time)}{self.Colors.ENDC} - {e.message}"
+        )

@@ -1,5 +1,4 @@
 import unittest
-from datetime import datetime, timedelta
 from unittest.mock import MagicMock
 from LogsMonitor2000.event import WebLogEvent, Event
 from LogsMonitor2000.action import Action
@@ -11,7 +10,7 @@ from LogsMonitor2000.analyze.mostCommonCalculator import MostCommonCalculator
 class TestAnalyzeAlgorithms(unittest.TestCase):
     "Test analyze module functions"
 
-    def _makeEvent(self, time):
+    def _makeEvent(self, time: int) -> WebLogEvent:
         """ Construct commonly required Event content where only time matters """
         return WebLogEvent(
             time=time,
@@ -35,15 +34,13 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
         proc = AnalyticsProcessor(
             action, mostCommonStatsInterval=10, highTrafficInterval=-1
         )
-        # Set now time so we add logs relative to that
-        now = datetime.strptime("2020-01-01 00:00:00.000000", "%Y-%m-%d %H:%M:%S.%f")
 
-        e0 = self._makeEvent(now + timedelta(seconds=1))
-        e1 = self._makeEvent(now + timedelta(seconds=0))
-        e2 = self._makeEvent(now + timedelta(seconds=1))
-        e3 = self._makeEvent(now + timedelta(seconds=0))
-        e4 = self._makeEvent(now + timedelta(seconds=2))
-        e5 = self._makeEvent(now + timedelta(seconds=5))
+        e0 = self._makeEvent(time=1)
+        e1 = self._makeEvent(time=0)
+        e2 = self._makeEvent(time=1)
+        e3 = self._makeEvent(time=0)
+        e4 = self._makeEvent(time=2)
+        e5 = self._makeEvent(time=5)
 
         proc.consume(e0)
         proc.consume(e1)
@@ -67,15 +64,13 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
         proc = AnalyticsProcessor(
             action, mostCommonStatsInterval=10, highTrafficInterval=-1
         )
-        # Set now time so we add logs relative to that
-        now = datetime.strptime("2020-01-01 00:00:00.000000", "%Y-%m-%d %H:%M:%S.%f")
 
-        e0 = self._makeEvent(now + timedelta(seconds=1))
-        e1 = self._makeEvent(now + timedelta(seconds=0))
-        e2 = self._makeEvent(now + timedelta(seconds=1))
-        e3 = self._makeEvent(now + timedelta(seconds=0))
-        e4 = self._makeEvent(now + timedelta(seconds=2))
-        e5 = self._makeEvent(now + timedelta(seconds=3))
+        e0 = self._makeEvent(time=1)
+        e1 = self._makeEvent(time=0)
+        e2 = self._makeEvent(time=1)
+        e3 = self._makeEvent(time=0)
+        e4 = self._makeEvent(time=2)
+        e5 = self._makeEvent(time=3)
 
         proc.consume(e0)
         proc.consume(e1)
@@ -96,14 +91,12 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
         proc = AnalyticsProcessor(
             action, mostCommonStatsInterval=10, highTrafficInterval=-1
         )
-        # Set now time so we add logs relative to that
-        now = datetime.strptime("2020-01-01 00:00:00.000000", "%Y-%m-%d %H:%M:%S.%f")
 
-        e0 = self._makeEvent(now + timedelta(seconds=2))
-        e1 = self._makeEvent(now + timedelta(seconds=4))
-        e2 = self._makeEvent(now + timedelta(seconds=5))
-        e3 = self._makeEvent(now + timedelta(seconds=6))
-        e4 = self._makeEvent(now + timedelta(seconds=1))
+        e0 = self._makeEvent(time=2)
+        e1 = self._makeEvent(time=4)
+        e2 = self._makeEvent(time=5)
+        e3 = self._makeEvent(time=6)
+        e4 = self._makeEvent(time=1)
 
         proc.consume(e0)
         proc.consume(e1)
@@ -129,16 +122,13 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
             highTrafficThreshold=3,
         )
 
-        # Fix now to an easier to reason about
-        now = datetime.strptime("2020-01-01 00:00:00.000000", "%Y-%m-%d %H:%M:%S.%f")
-
         # From normal to High traffic
-        e0 = self._makeEvent(now + timedelta(minutes=0))
-        e1 = self._makeEvent(now + timedelta(minutes=1))
-        e2 = self._makeEvent(now + timedelta(minutes=2))
-        e3 = self._makeEvent(now + timedelta(minutes=3))
-        e4 = self._makeEvent(now + timedelta(minutes=3))
-        e5 = self._makeEvent(now + timedelta(minutes=4))
+        e0 = self._makeEvent(time=60 * 0)
+        e1 = self._makeEvent(time=60 * 1)
+        e2 = self._makeEvent(time=60 * 2)
+        e3 = self._makeEvent(time=60 * 3)
+        e4 = self._makeEvent(time=60 * 3)
+        e5 = self._makeEvent(time=60 * 4)
         proc.consume(e0)
         proc.consume(e1)
         proc.consume(e2)
@@ -166,7 +156,7 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
         )
 
         # Back to normal also generates alert
-        e6 = self._makeEvent(now + timedelta(minutes=6))
+        e6 = self._makeEvent(time=60 * 6)
         proc.consume(e6)
         alertBackToNormal = Event(
             time=e6.time,
@@ -175,7 +165,7 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
         )
         action.notify.assert_called_with(alertBackToNormal)
 
-        e7 = self._makeEvent(now + timedelta(minutes=9))
+        e7 = self._makeEvent(time=60 * 9)
         proc.consume(e7)
         self.assertEqual(
             2, action.notify.call_count, "No more alerts as traffic stays low"
@@ -183,9 +173,9 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
         self.assertEqual(1, len(proc._events), "Only one event collected")
 
         # Traffic up, alert High again
-        e8 = self._makeEvent(now + timedelta(minutes=9))
-        e9 = self._makeEvent(now + timedelta(minutes=9))
-        e10 = self._makeEvent(now + timedelta(minutes=9))
+        e8 = self._makeEvent(time=60 * 9)
+        e9 = self._makeEvent(time=60 * 9)
+        e10 = self._makeEvent(time=60 * 9)
         proc.consume(e8)
         proc.consume(e9)
         proc.consume(e10)
@@ -207,16 +197,14 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
         proc = AnalyticsProcessor(
             action, mostCommonStatsInterval=10, highTrafficInterval=-1
         )
-        # Set now time so we add logs relative to that
-        now = datetime.strptime("2020-01-01 00:00:00.000000", "%Y-%m-%d %H:%M:%S.%f")
 
-        e0 = self._makeEvent(now + timedelta(minutes=0))
-        e1 = self._makeEvent(now + timedelta(minutes=30, seconds=0))
-        e2 = self._makeEvent(now + timedelta(minutes=30, seconds=5))
-        e3 = self._makeEvent(now + timedelta(minutes=30, seconds=9))
-        e4 = self._makeEvent(now + timedelta(minutes=30, seconds=10))
-        e5 = self._makeEvent(now + timedelta(minutes=30, seconds=14))
-        e6 = self._makeEvent(now + timedelta(minutes=30, seconds=58))
+        e0 = self._makeEvent(time=60 * 0)
+        e1 = self._makeEvent(time=60 * 30 + 0)
+        e2 = self._makeEvent(time=60 * 30 + 5)
+        e3 = self._makeEvent(time=60 * 30 + 9)
+        e4 = self._makeEvent(time=60 * 30 + 10)
+        e5 = self._makeEvent(time=60 * 30 + 14)
+        e6 = self._makeEvent(time=60 * 30 + 58)
 
         proc.consume(e0)
         self.assertEqual(
@@ -322,15 +310,13 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
         proc = AnalyticsProcessor(
             action, mostCommonStatsInterval=10, highTrafficInterval=-1
         )
-        # Set now time so we add logs relative to that
-        now = datetime.strptime("2020-01-01 00:00:00.000000", "%Y-%m-%d %H:%M:%S.%f")
 
-        e0 = self._makeEvent(now + timedelta(seconds=0))
-        e1 = self._makeEvent(now + timedelta(seconds=10))  # Event
-        e2 = self._makeEvent(now + timedelta(seconds=11))
-        e3 = self._makeEvent(now + timedelta(seconds=12))
-        e4 = self._makeEvent(now + timedelta(seconds=20))  # Event
-        e5 = self._makeEvent(now + timedelta(seconds=23))  # Buffer flush
+        e0 = self._makeEvent(time=0)
+        e1 = self._makeEvent(time=10)  # Event
+        e2 = self._makeEvent(time=11)
+        e3 = self._makeEvent(time=12)
+        e4 = self._makeEvent(time=20)  # Event
+        e5 = self._makeEvent(time=23)  # Buffer flush
 
         e1.section = "/ping"
         e1.source = "NSA"
@@ -390,16 +376,13 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
             highTrafficThreshold=1,
         )
 
-        # Consume a bunch of web events
-        now = datetime.strptime("2020-01-01 00:00:00.000000", "%Y-%m-%d %H:%M:%S.%f")
-
-        proc.consume(self._makeEvent(now + timedelta(minutes=0)))
-        proc.consume(self._makeEvent(now + timedelta(minutes=1)))
-        proc.consume(self._makeEvent(now + timedelta(minutes=2)))
-        proc.consume(self._makeEvent(now + timedelta(minutes=3)))
-        proc.consume(self._makeEvent(now + timedelta(minutes=3)))
-        proc.consume(self._makeEvent(now + timedelta(minutes=4)))
-        eventFinal = self._makeEvent(now + timedelta(minutes=7))
+        proc.consume(self._makeEvent(time=60 * 0))
+        proc.consume(self._makeEvent(time=60 * 1))
+        proc.consume(self._makeEvent(time=60 * 2))
+        proc.consume(self._makeEvent(time=60 * 3))
+        proc.consume(self._makeEvent(time=60 * 3))
+        proc.consume(self._makeEvent(time=60 * 4))
+        eventFinal = self._makeEvent(time=60 * 7)
         proc.consume(eventFinal)
 
         self.assertEqual(
@@ -425,15 +408,13 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
         proc = AnalyticsProcessor(
             action, mostCommonStatsInterval=10, highTrafficInterval=-1
         )
-        # Set now time so we add logs relative to that
-        now = datetime.strptime("2020-01-01 00:00:00.000000", "%Y-%m-%d %H:%M:%S.%f")
 
-        e0 = self._makeEvent(now + timedelta(minutes=0))
-        e1 = self._makeEvent(now + timedelta(minutes=1))  # Event, buffer flush
-        e2 = self._makeEvent(now + timedelta(minutes=2))  # Event, buffer flush
-        e3 = self._makeEvent(now + timedelta(minutes=3))  # Event, buffer flush
-        e4 = self._makeEvent(now + timedelta(minutes=4))  # Event, buffer flush
-        e5 = self._makeEvent(now + timedelta(minutes=5))  # Event, buffer flush
+        e0 = self._makeEvent(time=60 * 0)
+        e1 = self._makeEvent(time=60 * 1)  # Event, buffer flush
+        e2 = self._makeEvent(time=60 * 2)  # Event, buffer flush
+        e3 = self._makeEvent(time=60 * 3)  # Event, buffer flush
+        e4 = self._makeEvent(time=60 * 4)  # Event, buffer flush
+        e5 = self._makeEvent(time=60 * 5)  # Event, buffer flush
 
         proc.consume(e0)
         proc.consume(e1)
@@ -457,19 +438,19 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
         "For better code coverage "
 
         with self.assertRaises(NotImplementedError):
-            e = self._makeEvent("2021-03-05")
+            e = self._makeEvent(time=1620796046)
             Processor(Action()).consume(e)
 
         with self.assertRaises(NotImplementedError):
-            StreamCalculator(Action()).count(self._makeEvent("2021-03-05"))
+            StreamCalculator(Action()).count(self._makeEvent(time=1620796046))
 
         with self.assertRaises(NotImplementedError):
             StreamCalculator(Action())._removeFromCalculation(
-                self._makeEvent("2021-03-05")
+                self._makeEvent(time=1620796046)
             )
 
         with self.assertRaises(NotImplementedError):
-            StreamCalculator(Action())._triggerAlert(self._makeEvent("2021-03-05"))
+            StreamCalculator(Action())._triggerAlert(self._makeEvent(time=1620796046))
 
         with self.assertRaises(ValueError):
             MostCommonCalculator(Action()).count(123)

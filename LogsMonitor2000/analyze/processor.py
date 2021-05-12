@@ -1,7 +1,6 @@
 import heapq
 import logging
 from datetime import datetime
-from typing import Any, Optional, Tuple
 from collections import deque
 
 from ..event import Event, WebLogEvent
@@ -63,7 +62,7 @@ class AnalyticsProcessor(Processor):
         self._buffer: list[WebLogEvent] = []
         # Collect sliding window events to count/discount in calculations as time progresses.
         self._events: deque[WebLogEvent] = deque()
-        self._earliestBufferTime: int
+        self._smallestBufferTime: int
 
     def consume(self, newestEvent: WebLogEvent) -> None:  # type: ignore
         """Consume sourced traffic entry, calculate stats and volume changes in traffic"""
@@ -74,24 +73,22 @@ class AnalyticsProcessor(Processor):
             )
             return
 
-        key = int(newestEvent.time.timestamp())
         heapq.heappush(self._buffer, newestEvent)
-        self._earliestBufferTime = (
-            min(key, int(self._buffer[0].time.timestamp())) if self._buffer else key
-        )
+        if self._buffer:
+            self._smallestBufferTime = min(newestEvent.time, self._buffer[0].time)
+        else:
+            self._smallestBufferTime = newestEvent.time
         # Check time diff between smallest (earliest) event and current
-        seconds = key - self._earliestBufferTime
+        seconds = newestEvent.time - self._smallestBufferTime
         # If still within buffer time, push new one to heap
         if not self._buffer or seconds <= self._BUFFER_TIME:
             logging.debug(
-                f"Only buffered event, earliest {self._earliestBufferTime}, now: {newestEvent.time}, diff {seconds}"
+                f"Only buffered event, earliest {self._smallestBufferTime}, now: {newestEvent.time}, diff {seconds}"
             )
             return
 
-        # discount all events in buffer
-        while (
-            newestEvent.time - self._buffer[0].time
-        ).total_seconds() > self._BUFFER_TIME:
+        # discount all relevant events in buffer
+        while newestEvent.time - self._buffer[0].time > self._BUFFER_TIME:
             e = heapq.heappop(self._buffer)
             logging.debug(f"Flushing from buffer {e.time}")
 
@@ -108,7 +105,7 @@ class AnalyticsProcessor(Processor):
         else:
             logging.debug(f"{e.time} is within buffer time")
 
-        self._earliestBufferTime = int(self._buffer[0].time.timestamp())
+        self._smallestBufferTime = self._buffer[0].time
 
     def _removeOldEvents(self, newestEvent: Event) -> None:
         "Remove one or more events that have fallen out of any calculators' time-intervals"
@@ -119,7 +116,9 @@ class AnalyticsProcessor(Processor):
             and newestEvent.time - self._events[0].time > self._largestWindow
         ):
             outdatedEvent = self._events.popleft()
-            logging.debug(f"Removed outdated event {outdatedEvent.time}.")
+            logging.debug(
+                f"Removed outdated event {datetime.fromtimestamp(outdatedEvent.time)}."
+            )
             for calc in self._statsCalculators:
                 calc.discount(outdatedEvent, newestEvent)
 

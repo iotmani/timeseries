@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime
-from typing import Counter, Optional, Any
+from typing import Counter
 from ..event import Event, WebLogEvent
 from ..action import Action
 from .calculator import StreamCalculator
@@ -14,14 +14,16 @@ class MostCommonCalculator(StreamCalculator):
         super().__init__(action, windowSizeInSeconds)
 
         # Used for counting "most common" traffic stats
-        self._timeLastCollectedStats: Optional[datetime] = None
+        self._timeLastCollectedStats: int = -1
         self._countSections: Counter[str] = Counter()
         self._countSources: Counter[str] = Counter()
 
     def _removeFromCalculation(self, e: WebLogEvent) -> None:  # type: ignore
         if type(e) is not WebLogEvent:
             raise ValueError(f"Expected WebLogEvent for: {e}")
-        logging.debug(f"Removing old event from most common stats: {e.time}")
+        logging.debug(
+            f"Removing old event from most common stats: {datetime.fromtimestamp(e.time)}"
+        )
         self._countSections[e.section] -= 1
         self._countSources[e.source] -= 1
         # No need to update calculation for this calculator at 'discount'
@@ -31,14 +33,17 @@ class MostCommonCalculator(StreamCalculator):
         if type(e) is not WebLogEvent:
             raise ValueError(f"Expected WebLogEvent for: {e}")
 
-        logging.debug(f"Counting log {e.section} from {e.source} at {e.time}")
+        logging.debug(
+            f"Counting log {e.section} from {e.source} at {datetime.fromtimestamp(e.time)}"
+        )
         self._countSections[e.section] += 1
         self._countSources[e.source] += 1
         self._triggerAlert(e)
 
     def _triggerAlert(self, latestEvent: Event) -> None:
         """ Refresh calculation, trigger alerts with most common sections/sources when applicable """
-        self._timeLastCollectedStats = self._timeLastCollectedStats or latestEvent.time
+        if self._timeLastCollectedStats == -1:
+            self._timeLastCollectedStats = latestEvent.time
         if (latestEvent.time - self._timeLastCollectedStats) < self._windowSize:
             # Latest event time hasn't yet crossed the full interval
             return

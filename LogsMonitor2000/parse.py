@@ -94,14 +94,13 @@ class HTTPLogParser(Parser):
     def _generateEvent(self, row: typing.List[str]) -> None:
         """ Build event object from pre-sanitised data and send for processing """
 
-        timestamp = datetime.fromtimestamp(int(row[3]))
         section = "/" + row[4].split(" ")[1].split("/")[1]
         e = WebLogEvent(
             priority=WebLogEvent.Priority.MEDIUM,
             source=row[0],
             rfc931=row[1],
             authuser=row[2],
-            time=timestamp,
+            time=int(row[3]),
             request=row[4],
             section=section,
             status=row[5],
