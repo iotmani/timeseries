@@ -45,12 +45,16 @@ class AnalyticsProcessor(Processor):
             self._statsCalculators.append(
                 MostCommonCalculator(action, mostCommonStatsInterval)
             )
+        else:
+            logging.info("Most Common Stats calculator deactivated")
 
-        # Only add calculator if its parameters are valid
+        # Only add calculator if parameters are valid
         if highTrafficThreshold > 0 and highTrafficInterval > 0:
             self._statsCalculators.append(
                 HighTrafficCalculator(action, highTrafficInterval, highTrafficThreshold)
             )
+        else:
+            logging.info("High Traffic Alerts calculator deactivated")
 
         # Cache largest sliding window size as we'll use it often
         self._largestWindow = max(
@@ -62,7 +66,6 @@ class AnalyticsProcessor(Processor):
         self._buffer: list[WebLogEvent] = []
         # Collect sliding window events to count/discount in calculations as time progresses.
         self._events: deque[WebLogEvent] = deque()
-        self._smallestBufferTime: int
 
     def consume(self, newestEvent: WebLogEvent) -> None:  # type: ignore
         """Consume sourced traffic entry, calculate stats and volume changes in traffic"""
@@ -74,16 +77,14 @@ class AnalyticsProcessor(Processor):
             return
 
         heapq.heappush(self._buffer, newestEvent)
-        if self._buffer:
-            self._smallestBufferTime = min(newestEvent.time, self._buffer[0].time)
-        else:
-            self._smallestBufferTime = newestEvent.time
+
+        earliestBufferEvent = min(newestEvent.time, self._buffer[0].time)
         # Check time diff between smallest (earliest) event and current
-        seconds = newestEvent.time - self._smallestBufferTime
+        timeDifference = newestEvent.time - earliestBufferEvent
         # If still within buffer time, push new one to heap
-        if not self._buffer or seconds <= self._BUFFER_TIME:
+        if not self._buffer or timeDifference <= self._BUFFER_TIME:
             logging.debug(
-                f"Only buffered event, earliest {self._smallestBufferTime}, now: {newestEvent.time}, diff {seconds}"
+                f"Only buffered event, earliest {earliestBufferEvent}, now: {newestEvent.time}, diff {timeDifference}"
             )
             return
 
@@ -92,8 +93,6 @@ class AnalyticsProcessor(Processor):
             e = heapq.heappop(self._buffer)
             logging.debug(f"Flushing from buffer {e.time}")
 
-            # TODO change this to pair (time, [events]) ? so we remove all at once
-            # TODO therefore add support to count multiple, and discount multiple
             self._events.append(e)
             # Remove all entries that fall out from start of the widest window interval,
             # updating calculations along the way
@@ -104,8 +103,6 @@ class AnalyticsProcessor(Processor):
                 calc.count(e)
         else:
             logging.debug(f"{e.time} is within buffer time")
-
-        self._smallestBufferTime = self._buffer[0].time
 
     def _removeOldEvents(self, newestEvent: Event) -> None:
         "Remove one or more events that have fallen out of any calculators' time-intervals"
