@@ -444,16 +444,16 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
             Processor(Action()).consume(e)
 
         with self.assertRaises(NotImplementedError):
-            StreamCalculator(Action()).count(self._makeEvent(time=1620796046))
+            StreamCalculator(Action()).count([self._makeEvent(time=1620796046)])
 
         with self.assertRaises(NotImplementedError):
-            StreamCalculator(Action()).discount(self._makeEvent(time=1620796046))
+            StreamCalculator(Action()).discount([self._makeEvent(time=1620796046)])
 
         with self.assertRaises(NotImplementedError):
             StreamCalculator(Action())._triggerAlert(1620796046)
 
         with self.assertRaises(ValueError):
-            MostCommonCalculator(Action()).count(123)
+            MostCommonCalculator(Action()).count([123])
 
         with self.assertRaises(ValueError):
-            MostCommonCalculator(Action()).discount(123)
+            MostCommonCalculator(Action()).discount([123])

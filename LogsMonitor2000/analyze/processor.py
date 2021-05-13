@@ -65,12 +65,12 @@ class AnalyticsProcessor(Processor):
         self._BUFFER_TIME = 2
 
         # Collect events in a heapq due to buffer out-of-order arrivals before processing them
-        self._buffer: list[WebLogEvent] = []
+        self._buffer: list[Event] = []
 
         # Collect sliding window events to count/discount in calculations as time progresses
         # We often pop-left and append-right hence deque
         # We expect lots of events per second, therefore batch them together
-        self._events: deque[list[WebLogEvent]] = deque()
+        self._events: deque[list[Event]] = deque()
 
     def consume(self, latestEvent: WebLogEvent) -> None:  # type: ignore
         """Consume sourced traffic entry, calculate stats and volume changes in traffic"""
@@ -92,7 +92,7 @@ class AnalyticsProcessor(Processor):
             logging.debug(f"Buffered event {latestEvent.time}, diff {timeDifference}")
             return
 
-        eventGroups: list[list[WebLogEvent]] = []
+        eventGroups: list[list[Event]] = []
 
         # Flush events with time beyond the buffer time
         while latestEvent.time - self._buffer[0].time > self._BUFFER_TIME:
@@ -116,8 +116,7 @@ class AnalyticsProcessor(Processor):
 
             # Add new event to calculations
             for calc in self._statsCalculators:
-                for e in eventGroup:
-                    calc.count(e)
+                calc.count(eventGroup)
 
     def _removeOldEvents(self, newestEventTime: int) -> None:
         "Remove one or more events that have fallen out of any calculators' sliding window"

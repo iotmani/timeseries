@@ -29,26 +29,23 @@ class StreamCalculator:
             self._lastRemovalTime == -1 or old > self._lastRemovalTime
         )
 
-    def discountIfOut(
-        self, eventsGroup: list[WebLogEvent], newestEventTime: int
-    ) -> bool:
+    def discountIfOut(self, eventsGroup: list[Event], newestEventTime: int) -> bool:
         "Check event as it may or may not be in the sliding window, return true if removed"
         oldEventsTime = eventsGroup[0].time
 
         if self._isWithinWindow(old=oldEventsTime, new=newestEventTime):
-            for e in eventsGroup:
-                self.discount(e)
+            self.discount(eventsGroup)
             self._lastRemovalTime = oldEventsTime
             logging.debug(f"Removing outdated event(s) at {oldEventsTime}.")
             return True
         # We didn't delete anything as it was outside the window anyway
         return False
 
-    def count(self, event: Event) -> None:
+    def count(self, events: list[Event]) -> None:
         "Consume an event as it enters in the sliding window interval"
         raise NotImplementedError()
 
-    def discount(self, event: Event) -> None:
+    def discount(self, events: list[Event]) -> None:
         "Implement to perform the actual removal from overall calculation of out of window event"
         raise NotImplementedError()
 

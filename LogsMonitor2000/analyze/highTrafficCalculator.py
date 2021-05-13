@@ -18,15 +18,15 @@ class HighTrafficCalculator(StreamCalculator):
         self._totalCount: int = 0
         self._alertMode = False
 
-    def count(self, e: Event) -> None:
+    def count(self, events: list[Event]) -> None:
         "Count to use in high traffic average"
-        self._totalCount += 1
-        self._triggerAlert(e.time)
+        self._totalCount += len(events)
+        self._triggerAlert(events[0].time)
 
-    def discount(self, e: Event) -> None:
+    def discount(self, events: list[Event]) -> None:
         "Discount and check if avg back to normal"
-        self._totalCount -= 1
-        self._triggerAlert(e.time)
+        self._totalCount -= len(events)
+        self._triggerAlert(events[0].time)
 
     def _triggerAlert(self, now: int) -> None:
         average = int(self._totalCount / max(1, self._windowSize))
