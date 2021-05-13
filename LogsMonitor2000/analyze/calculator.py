@@ -1,7 +1,7 @@
 import logging
-from typing import Optional
-from ..event import Event
+from ..event import Event, WebLogEvent
 from ..action import Action
+from datetime import datetime
 
 
 class StreamCalculator:
@@ -18,28 +18,27 @@ class StreamCalculator:
         # Window could be smaller than the main window of collected events
         # Window is any time after this, i.e.:
         #   _windowStartsAfterEvent.time < newestEvent - _windowSize <= newestEvent
-        self._windowStartsAfterEvent: Optional[Event] = None
+        self._windowStartsAfterEvent: int = -1
 
     def getWindowSize(self) -> int:
         "Time-window length this calculator requires to function"
         return self._windowSize
 
-    def _isWithinWindow(self, oldEvent: Event, newestEvent: Event) -> bool:
+    def _isWithinWindow(self, old: int, new: int) -> bool:
         "Check if given event falls within window interval relative to the newest event"
-        return newestEvent.time - oldEvent.time <= self._windowSize and (
-            self._windowStartsAfterEvent is None
-            # TODO this used to be <=
-            or (
-                oldEvent.time > self._windowStartsAfterEvent.time
-                and oldEvent != self._windowStartsAfterEvent
-            )
+        return new - old > self._windowSize and (
+            self._windowStartsAfterEvent == -1 or old > self._windowStartsAfterEvent
         )
 
-    def discount(self, e: Event, newestEvent) -> bool:
-        "Check event as it may or may not the sliding window, return true if it did"
-        if not self._isWithinWindow(oldEvent=e, newestEvent=newestEvent):
-            self._removeFromCalculation(e)
-            self._windowStartsAfterEvent = e
+    def discount(self, eventsGroup: list[WebLogEvent], newestEventTime: int) -> bool:
+        "Check event as it may or may not be in the sliding window, return true if removed"
+        oldEventsTime = eventsGroup[0].time
+
+        if self._isWithinWindow(old=oldEventsTime, new=newestEventTime):
+            for e in eventsGroup:
+                self._removeFromCalculation(e)
+            self._windowStartsAfterEvent = oldEventsTime
+            logging.debug(f"Removing outdated event(s) at {oldEventsTime}.")
             return True
         # We didn't delete anything as it was outside the window anyway
         return False
@@ -52,6 +51,6 @@ class StreamCalculator:
         "Implement to perform the actual removal from overall calculation of out of window event"
         raise NotImplementedError()
 
-    def _triggerAlert(self, event: Event) -> None:
+    def _triggerAlert(self, eventTime: int) -> None:
         "Implement to check if conditions are met for sending any alerting"
         raise NotImplementedError()

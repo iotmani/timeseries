@@ -21,21 +21,17 @@ class HighTrafficCalculator(StreamCalculator):
     def count(self, e: Event) -> None:
         "Count to use in high traffic average"
         self._totalCount += 1
-        self._triggerAlert(e)
+        self._triggerAlert(e.time)
 
     def _removeFromCalculation(self, e: Event) -> None:
         self._totalCount -= 1
-        self._triggerAlert(e)
+        self._triggerAlert(e.time)
 
-    def _triggerAlert(self, latestEvent: Event) -> None:
-        now = latestEvent.time
-        # TODO io107
-        timeInterval = self._windowSize
-        # average = int(self._totalCount / max(1, timeInterval))
-        average = self._totalCount
+    def _triggerAlert(self, now: int) -> None:
+        average = int(self._totalCount / max(1, self._windowSize))
 
         logging.debug(f"High traffic average: {average}")
-        # Fire only if average exceeds threshold
+        # Fire only if average exceeds threshold, alert only once
         if average > self._threshold and not self._alertMode:
             alertHighTraffic: Event = Event(
                 time=now,
@@ -47,7 +43,7 @@ class HighTrafficCalculator(StreamCalculator):
             self._alertMode = True
             logging.debug(f"High traffic, fired {alertHighTraffic}")
 
-        # If back to normal again, alert only once
+        # If back to normal again
         if average <= self._threshold and self._alertMode:
             alertBackToNormal: Event = Event(
                 time=now,

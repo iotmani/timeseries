@@ -1,4 +1,5 @@
 import unittest
+from collections import deque
 from unittest.mock import MagicMock
 from LogsMonitor2000.event import WebLogEvent, Event
 from LogsMonitor2000.action import Action
@@ -29,7 +30,7 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
         """Test bufferred out-of-order events t0 t1 t2 should be all processed once t5 comes in"""
 
         action = MagicMock()
-        # Pick any one calculator, we only care about the buffer content
+        # Pick any calculator, we only care check the buffer content and events window
         # Deactivate high traffic calculation
         proc = AnalyticsProcessor(
             action, mostCommonStatsInterval=10, highTrafficInterval=-1
@@ -49,8 +50,9 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
         proc.consume(e4)
         proc.consume(e5)
 
-        self.assertEqual(5, len(proc._events))
-        self.assertEqual([e5], proc._buffer)
+        self.assertEqual(3, len(proc._events), "# of event groups by time in window")
+        self.assertEqual(deque([[e1, e3], [e0, e2], [e4]]), proc._events)
+        self.assertEqual([e5], proc._buffer, "Buffer must only contains this one event")
 
     def testBufferFlushOnlyRelevant(self):
         """
@@ -79,7 +81,7 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
         proc.consume(e4)
         proc.consume(e5)
 
-        self.assertEqual(2, len(proc._events))
+        self.assertEqual(deque([[e1, e3]]), proc._events)
         self.assertEqual(4, len(proc._buffer))
 
     def testBufferDropTooOld(self):
@@ -450,7 +452,7 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
             )
 
         with self.assertRaises(NotImplementedError):
-            StreamCalculator(Action())._triggerAlert(self._makeEvent(time=1620796046))
+            StreamCalculator(Action())._triggerAlert(1620796046)
 
         with self.assertRaises(ValueError):
             MostCommonCalculator(Action()).count(123)

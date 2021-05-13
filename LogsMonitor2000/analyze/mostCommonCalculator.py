@@ -38,13 +38,13 @@ class MostCommonCalculator(StreamCalculator):
         )
         self._countSections[e.section] += 1
         self._countSources[e.source] += 1
-        self._triggerAlert(e)
+        self._triggerAlert(e.time)
 
-    def _triggerAlert(self, latestEvent: Event) -> None:
+    def _triggerAlert(self, latestEventTime: int) -> None:
         """ Refresh calculation, trigger alerts with most common sections/sources when applicable """
         if self._timeLastCollectedStats == -1:
-            self._timeLastCollectedStats = latestEvent.time
-        if (latestEvent.time - self._timeLastCollectedStats) < self._windowSize:
+            self._timeLastCollectedStats = latestEventTime
+        if (latestEventTime - self._timeLastCollectedStats) < self._windowSize:
             # Latest event time hasn't yet crossed the full interval
             return
 
@@ -57,8 +57,8 @@ class MostCommonCalculator(StreamCalculator):
             + f"{mostCommonSection[0]} ({mostCommonSection[1]} requests)"
             + ", source: "
             + f"{mostCommonSource[0]} ({mostCommonSource[1]} requests)",
-            time=latestEvent.time,
+            time=latestEventTime,
         )
         self._action.notify(statsEvent)
         logging.debug(f"Fired stats alert {statsEvent}")
-        self._timeLastCollectedStats = latestEvent.time
+        self._timeLastCollectedStats = latestEventTime
