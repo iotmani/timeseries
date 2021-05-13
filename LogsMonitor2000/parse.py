@@ -1,7 +1,6 @@
 import os
 import csv
 import time
-import typing
 import logging
 from .event import WebLogEvent
 from .analyze import Processor
@@ -24,13 +23,12 @@ class HTTPLogParser(Parser):
 
     def __init__(self, processor: Processor, path: str, isFollowMode: bool = False):
         super().__init__(processor)
-        self._log = logging.getLogger(__name__)
         self._path = path
         self._isFollowMode = isFollowMode
 
     def parse(self) -> None:
         """ Parse raw data from log file and generate log event object """
-        self._log.info(f"Monitoring HTTP log file {self._path}")
+        logging.info(f"Monitoring HTTP log file {self._path}")
         position = 0
         while True:
             position = self._parseFile(position)
@@ -49,49 +47,49 @@ class HTTPLogParser(Parser):
                     # Skip header iff one exists
                     header = next(logreader)
                     if len(header) > 0 and header[0] != "remotehost":
-                        self._log.debug("No header")
+                        logging.debug("No header")
                         fd.seek(position)
                     else:
-                        self._log.debug(f"Header: {header}")
+                        logging.debug(f"Header: {header}")
                 except StopIteration as e:
                     # E.g. Occurs if empty file or polling end of file
-                    self._log.debug("Nothing further to read")
+                    logging.debug("Nothing further to read")
                     pass
 
-                # Parse rows in best-effort mode (skip any bad lines)
+                # Parse rows in best-effort mode (i.e. skip any bad lines)
                 for row in logreader:
                     if self._isSanitised(row):
                         # and generate WebLogEvents to send for processing
                         self._generateEvent(row)
                 return fd.tell()
         except FileNotFoundError as e:
-            self._log.error(f"HTTP log file doesn't exist: {self._path}")
+            logging.error(f"HTTP log file doesn't exist: {self._path}")
         except csv.Error as ce:
-            self._log.error(f"HTTP log file not valid CSV: {self._path}")
-        # Return original position if any issues
+            logging.error(f"HTTP log file not valid CSV: {self._path}")
+        # Return original to position if any issues so we stop or keep polling
         return position
 
-    def _isSanitised(self, row: typing.List[str]) -> bool:
+    def _isSanitised(self, row: list[str]) -> bool:
         """ Sanitise row columns data types """
         if len(row) != 7:
-            self._log.warning(f"Malformed CSV row: {row}")
+            logging.warning(f"Malformed CSV row: {row}")
             return False
 
         # Parseable section out of request, i.e. row[4]
         section = row[4].split(" ")
         if len(section) < 2 or len(section[1].split("/")) < 2:
-            self._log.warning(f"Malformed 'section' part of row: {row}")
+            logging.warning(f"Malformed 'section' part of row: {row}")
             return False
 
         try:
             datetime.fromtimestamp(int(row[3]))
         except (ValueError, OverflowError, OSError) as e:
-            self._log.warning(f"Malformed 'date' part of row: {row}")
+            logging.warning(f"Malformed 'date' part of row: {row}")
             return False
 
         return True
 
-    def _generateEvent(self, row: typing.List[str]) -> None:
+    def _generateEvent(self, row: list[str]) -> None:
         """ Build event object from pre-sanitised data and send for processing """
 
         section = "/" + row[4].split(" ")[1].split("/")[1]

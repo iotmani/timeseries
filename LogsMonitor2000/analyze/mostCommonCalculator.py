@@ -1,5 +1,4 @@
 import logging
-from datetime import datetime
 from typing import Counter
 from ..event import Event, WebLogEvent
 from ..action import Action
@@ -45,7 +44,7 @@ class MostCommonCalculator(StreamCalculator):
         """ Refresh calculation, trigger alerts with most common sections/sources when applicable """
         if self._timeLastCollectedStats == -1:
             self._timeLastCollectedStats = latestEventTime
-        if (latestEventTime - self._timeLastCollectedStats) < self._windowSize:
+        if (latestEventTime - self._timeLastCollectedStats) < self.windowSize:
             # Latest event time hasn't yet crossed the full interval
             return
 

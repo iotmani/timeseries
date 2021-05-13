@@ -1,8 +1,7 @@
 import logging
-from typing import Optional, Any
 from ..event import Event
 from ..action import Action
-from datetime import datetime
+from datetime import datetime, timedelta
 from .calculator import StreamCalculator
 
 
@@ -15,8 +14,11 @@ class HighTrafficCalculator(StreamCalculator):
         super().__init__(action, windowSizeInSeconds)
         self._threshold: int = highTrafficThreshold
 
+        # Total number of events in sliding window
         self._totalCount: int = 0
-        self._alertMode = False
+
+        # Store if in high-traffic alert mode
+        self._isHighAlert = False
 
     def count(self, events: list[Event]) -> None:
         "Count to use in high traffic average"
@@ -29,11 +31,16 @@ class HighTrafficCalculator(StreamCalculator):
         self._triggerAlert(events[0].time)
 
     def _triggerAlert(self, now: int) -> None:
-        average = int(self._totalCount / max(1, self._windowSize))
+        """
+        If average above threshold, alert once until recovery.
+        If average back below threshold, alert once that it's recovered.
+        """
 
+        average = int(self._totalCount / max(1, self.windowSize))
         logging.debug(f"High traffic average: {average}")
+
         # Fire only if average exceeds threshold, alert only once
-        if average > self._threshold and not self._alertMode:
+        if average > self._threshold and not self._isHighAlert:
             alertHighTraffic: Event = Event(
                 time=now,
                 priority=Event.Priority.HIGH,
@@ -41,16 +48,16 @@ class HighTrafficCalculator(StreamCalculator):
                 f"hits {average}, triggered at {datetime.fromtimestamp(now)}",
             )
             self._action.notify(alertHighTraffic)
-            self._alertMode = True
+            self._isHighAlert = True
             logging.debug(f"High traffic, fired {alertHighTraffic}")
 
         # If back to normal again
-        if average <= self._threshold and self._alertMode:
+        if average <= self._threshold and self._isHighAlert:
             alertBackToNormal: Event = Event(
                 time=now,
                 priority=Event.Priority.HIGH,
                 message=f"Traffic is now back to normal as of {datetime.fromtimestamp(now)}",
             )
             self._action.notify(alertBackToNormal)
-            self._alertMode = False
+            self._isHighAlert = False
             logging.debug(f"High traffic back to normal, fired {alertBackToNormal}")

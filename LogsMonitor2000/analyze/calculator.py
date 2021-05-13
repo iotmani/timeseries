@@ -1,44 +1,47 @@
 import logging
-from ..event import Event, WebLogEvent
+from ..event import Event
 from ..action import Action
-from datetime import datetime
 
 
 class StreamCalculator:
     "Interface for implementing different kinds of statistics calculation on a window of events"
 
     def __init__(self, action: Action, windowSizeInSeconds=10):
-        # Time window required for calculations
-        self._windowSize: int = windowSizeInSeconds
 
         # To trigger any alerts if needed
         self._action = action
 
-        # Window could be smaller than the largest calculator window size of collected events
-        # Window is any time after this, i.e.:
-        #   _lastRemovalTime < newestEvent - _windowSize <= newestEvent
+        # Window size could be smaller than the largest calculator window of collected events
+        # Window is any time after this last removed item
         self._lastRemovalTime: int = -1
 
-    def getWindowSize(self) -> int:
-        "Time-window length this calculator requires to function"
-        return self._windowSize
+        # Time window required for calculations
+        self.windowSize: int = windowSizeInSeconds
 
-    def _isWithinWindow(self, old: int, new: int) -> bool:
-        "Check if given event falls within window interval relative to the newest event"
-        return new - old > self._windowSize and (
+    def _isNoLongerWithinWindow(self, old: int, new: int) -> bool:
+        """
+        Return true if event now falls outside window interval,
+        relative to the latest event as well as the previously removed
+        """
+        return new - old > self.windowSize and (
             self._lastRemovalTime == -1 or old > self._lastRemovalTime
         )
 
-    def discountIfOut(self, eventsGroup: list[Event], newestEventTime: int) -> bool:
-        "Check event as it may or may not be in the sliding window, return true if removed"
-        oldEventsTime = eventsGroup[0].time
+    def discountIfOut(self, olderEventsGrp: list[Event], newestEventTime: int) -> bool:
+        """
+        Check event as it may no longer be in the sliding window:
+        * It may have already been removed (i.e. earlier than _lastRemovalTime) => return False.
+        * It may be within the window time-interavl, not to be removed => return False.
+        * It may only now be outside the window, and is after last removel => Remove it and return True.
+        """
+        oldEventsTime = olderEventsGrp[0].time
 
-        if self._isWithinWindow(old=oldEventsTime, new=newestEventTime):
-            self.discount(eventsGroup)
+        if self._isNoLongerWithinWindow(old=oldEventsTime, new=newestEventTime):
+            self.discount(olderEventsGrp)
             self._lastRemovalTime = oldEventsTime
             logging.debug(f"Removing outdated event(s) at {oldEventsTime}.")
             return True
-        # We didn't delete anything as it was outside the window anyway
+        # We didn't discount anything as it was already removed or valid within window
         return False
 
     def count(self, events: list[Event]) -> None:

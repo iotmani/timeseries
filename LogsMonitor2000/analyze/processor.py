@@ -1,6 +1,5 @@
 import heapq
 import logging
-from datetime import datetime
 from collections import deque
 
 from ..event import Event, WebLogEvent
@@ -57,9 +56,7 @@ class AnalyticsProcessor(Processor):
             logging.info("High Traffic Alerts calculator deactivated")
 
         # Cache largest sliding window size as we'll use it often
-        self._largestWindow = max(
-            [calc.getWindowSize() for calc in self._statsCalculators]
-        )
+        self._largestWindow = max([calc.windowSize for calc in self._statsCalculators])
 
         # Assume events can come out of order for up to 2 seconds
         self._BUFFER_TIME = 2
@@ -132,6 +129,7 @@ class AnalyticsProcessor(Processor):
             for calc in self._statsCalculators:
                 calc.discountIfOut(outdatedEventsGroup, newestEventTime)
 
+        # Handle smaller sliding-windows:
         # Starting from oldest event, let each calculator remove any events that
         # have fallen outside its individual sliding window given the new 'now'
         for eventsGroup in self._events:
