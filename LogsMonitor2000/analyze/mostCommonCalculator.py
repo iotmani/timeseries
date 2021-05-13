@@ -13,12 +13,14 @@ class MostCommonCalculator(StreamCalculator):
     def __init__(self, action: Action, windowSizeInSeconds=10):
         super().__init__(action, windowSizeInSeconds)
 
-        # Used for counting "most common" traffic stats
+        # Collect stats every x seconds
         self._timeLastCollectedStats: int = -1
+
+        # Counters to display
         self._countSections: Counter[str] = Counter()
         self._countSources: Counter[str] = Counter()
 
-    def _removeFromCalculation(self, e: WebLogEvent) -> None:  # type: ignore
+    def discount(self, e: WebLogEvent) -> None:  # type: ignore
         if type(e) is not WebLogEvent:
             raise ValueError(f"Expected WebLogEvent for: {e}")
         logging.debug(
@@ -60,5 +62,5 @@ class MostCommonCalculator(StreamCalculator):
             time=latestEventTime,
         )
         self._action.notify(statsEvent)
-        logging.debug(f"Fired stats alert {statsEvent}")
         self._timeLastCollectedStats = latestEventTime
+        logging.debug(f"Fired stats alert {statsEvent}")

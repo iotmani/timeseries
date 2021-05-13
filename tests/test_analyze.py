@@ -447,9 +447,7 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
             StreamCalculator(Action()).count(self._makeEvent(time=1620796046))
 
         with self.assertRaises(NotImplementedError):
-            StreamCalculator(Action())._removeFromCalculation(
-                self._makeEvent(time=1620796046)
-            )
+            StreamCalculator(Action()).discount(self._makeEvent(time=1620796046))
 
         with self.assertRaises(NotImplementedError):
             StreamCalculator(Action())._triggerAlert(1620796046)
@@ -458,4 +456,4 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
             MostCommonCalculator(Action()).count(123)
 
         with self.assertRaises(ValueError):
-            MostCommonCalculator(Action())._removeFromCalculation(123)
+            MostCommonCalculator(Action()).discount(123)

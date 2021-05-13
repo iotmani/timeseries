@@ -13,17 +13,18 @@ class HighTrafficCalculator(StreamCalculator):
         self, action: Action, windowSizeInSeconds=120, highTrafficThreshold=10
     ):
         super().__init__(action, windowSizeInSeconds)
-
         self._threshold: int = highTrafficThreshold
-        self._alertMode = False
+
         self._totalCount: int = 0
+        self._alertMode = False
 
     def count(self, e: Event) -> None:
         "Count to use in high traffic average"
         self._totalCount += 1
         self._triggerAlert(e.time)
 
-    def _removeFromCalculation(self, e: Event) -> None:
+    def discount(self, e: Event) -> None:
+        "Discount and check if avg back to normal"
         self._totalCount -= 1
         self._triggerAlert(e.time)
 
