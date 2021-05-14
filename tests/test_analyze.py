@@ -8,23 +8,24 @@ from LogsMonitor2000.analyze.calculator import StreamCalculator
 from LogsMonitor2000.analyze.mostCommonCalculator import MostCommonCalculator
 
 
-class TestAnalyzeAlgorithms(unittest.TestCase):
-    "Test analyze module functions"
+def buildEvent(time: int) -> WebLogEvent:
+    """ Construct commonly required Event content where only time matters """
+    return WebLogEvent(
+        time=time,
+        priority=WebLogEvent.Priority.MEDIUM,
+        message="Some log",
+        rfc931=None,
+        authuser=None,
+        status=None,
+        size=None,
+        section="/api",
+        source="GCHQ",
+        request=None,
+    )
 
-    def _makeEvent(self, time: int) -> WebLogEvent:
-        """ Construct commonly required Event content where only time matters """
-        return WebLogEvent(
-            time=time,
-            priority=WebLogEvent.Priority.MEDIUM,
-            message="Some log",
-            rfc931=None,
-            authuser=None,
-            status=None,
-            size=None,
-            section="/api",
-            source="GCHQ",
-            request=None,
-        )
+
+class TestBuffering(unittest.TestCase):
+    "Test the buffering and buffer flushing parts"
 
     def testBufferFullFlush(self):
         """Test bufferred out-of-order events t0 t1 t2 should be all processed once t5 comes in"""
@@ -36,12 +37,12 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
             action, mostCommonStatsInterval=10, highTrafficInterval=-1
         )
 
-        e0 = self._makeEvent(time=1)
-        e1 = self._makeEvent(time=0)
-        e2 = self._makeEvent(time=1)
-        e3 = self._makeEvent(time=0)
-        e4 = self._makeEvent(time=2)
-        e5 = self._makeEvent(time=5)
+        e0 = buildEvent(time=1)
+        e1 = buildEvent(time=0)
+        e2 = buildEvent(time=1)
+        e3 = buildEvent(time=0)
+        e4 = buildEvent(time=2)
+        e5 = buildEvent(time=5)
 
         proc.consume(e0)
         proc.consume(e1)
@@ -67,12 +68,12 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
             action, mostCommonStatsInterval=10, highTrafficInterval=-1
         )
 
-        e0 = self._makeEvent(time=1)
-        e1 = self._makeEvent(time=0)
-        e2 = self._makeEvent(time=1)
-        e3 = self._makeEvent(time=0)
-        e4 = self._makeEvent(time=2)
-        e5 = self._makeEvent(time=3)
+        e0 = buildEvent(time=1)
+        e1 = buildEvent(time=0)
+        e2 = buildEvent(time=1)
+        e3 = buildEvent(time=0)
+        e4 = buildEvent(time=2)
+        e5 = buildEvent(time=3)
 
         proc.consume(e0)
         proc.consume(e1)
@@ -94,11 +95,11 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
             action, mostCommonStatsInterval=10, highTrafficInterval=-1
         )
 
-        e0 = self._makeEvent(time=2)
-        e1 = self._makeEvent(time=4)
-        e2 = self._makeEvent(time=5)
-        e3 = self._makeEvent(time=6)
-        e4 = self._makeEvent(time=1)
+        e0 = buildEvent(time=2)
+        e1 = buildEvent(time=4)
+        e2 = buildEvent(time=5)
+        e3 = buildEvent(time=6)
+        e4 = buildEvent(time=1)
 
         proc.consume(e0)
         proc.consume(e1)
@@ -108,6 +109,10 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
 
         self.assertEqual(1, len(proc._events))
         self.assertEqual(3, len(proc._buffer))
+
+
+class TestCalculators(unittest.TestCase):
+    "Test statistics calculation logic for high traffic alerts and most common stats"
 
     @unittest.skip("Doesnt yet support buffer")
     def testHighTrafficAlerts(self):
@@ -125,12 +130,12 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
         )
 
         # From normal to High traffic
-        e0 = self._makeEvent(time=60 * 0)
-        e1 = self._makeEvent(time=60 * 1)
-        e2 = self._makeEvent(time=60 * 2)
-        e3 = self._makeEvent(time=60 * 3)
-        e4 = self._makeEvent(time=60 * 3)
-        e5 = self._makeEvent(time=60 * 4)
+        e0 = buildEvent(time=60 * 0)
+        e1 = buildEvent(time=60 * 1)
+        e2 = buildEvent(time=60 * 2)
+        e3 = buildEvent(time=60 * 3)
+        e4 = buildEvent(time=60 * 3)
+        e5 = buildEvent(time=60 * 4)
         proc.consume(e0)
         proc.consume(e1)
         proc.consume(e2)
@@ -158,7 +163,7 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
         )
 
         # Back to normal also generates alert
-        e6 = self._makeEvent(time=60 * 6)
+        e6 = buildEvent(time=60 * 6)
         proc.consume(e6)
         alertBackToNormal = Event(
             time=e6.time,
@@ -167,7 +172,7 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
         )
         action.notify.assert_called_with(alertBackToNormal)
 
-        e7 = self._makeEvent(time=60 * 9)
+        e7 = buildEvent(time=60 * 9)
         proc.consume(e7)
         self.assertEqual(
             2, action.notify.call_count, "No more alerts as traffic stays low"
@@ -175,9 +180,9 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
         self.assertEqual(1, len(proc._events), "Only one event collected")
 
         # Traffic up, alert High again
-        e8 = self._makeEvent(time=60 * 9)
-        e9 = self._makeEvent(time=60 * 9)
-        e10 = self._makeEvent(time=60 * 9)
+        e8 = buildEvent(time=60 * 9)
+        e9 = buildEvent(time=60 * 9)
+        e10 = buildEvent(time=60 * 9)
         proc.consume(e8)
         proc.consume(e9)
         proc.consume(e10)
@@ -200,13 +205,13 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
             action, mostCommonStatsInterval=10, highTrafficInterval=-1
         )
 
-        e0 = self._makeEvent(time=60 * 0)
-        e1 = self._makeEvent(time=60 * 30 + 0)
-        e2 = self._makeEvent(time=60 * 30 + 5)
-        e3 = self._makeEvent(time=60 * 30 + 9)
-        e4 = self._makeEvent(time=60 * 30 + 10)
-        e5 = self._makeEvent(time=60 * 30 + 14)
-        e6 = self._makeEvent(time=60 * 30 + 58)
+        e0 = buildEvent(time=60 * 0)
+        e1 = buildEvent(time=60 * 30 + 0)
+        e2 = buildEvent(time=60 * 30 + 5)
+        e3 = buildEvent(time=60 * 30 + 9)
+        e4 = buildEvent(time=60 * 30 + 10)
+        e5 = buildEvent(time=60 * 30 + 14)
+        e6 = buildEvent(time=60 * 30 + 58)
 
         proc.consume(e0)
         self.assertEqual(
@@ -313,12 +318,12 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
             action, mostCommonStatsInterval=10, highTrafficInterval=-1
         )
 
-        e0 = self._makeEvent(time=0)
-        e1 = self._makeEvent(time=10)  # Event
-        e2 = self._makeEvent(time=11)
-        e3 = self._makeEvent(time=12)
-        e4 = self._makeEvent(time=20)  # Event
-        e5 = self._makeEvent(time=23)  # Buffer flush
+        e0 = buildEvent(time=0)
+        e1 = buildEvent(time=10)  # Event
+        e2 = buildEvent(time=11)
+        e3 = buildEvent(time=12)
+        e4 = buildEvent(time=20)  # Event
+        e5 = buildEvent(time=23)  # Buffer flush
 
         e1.section = "/ping"
         e1.source = "NSA"
@@ -378,13 +383,13 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
             highTrafficThreshold=1,
         )
 
-        proc.consume(self._makeEvent(time=60 * 0))
-        proc.consume(self._makeEvent(time=60 * 1))
-        proc.consume(self._makeEvent(time=60 * 2))
-        proc.consume(self._makeEvent(time=60 * 3))
-        proc.consume(self._makeEvent(time=60 * 3))
-        proc.consume(self._makeEvent(time=60 * 4))
-        eventFinal = self._makeEvent(time=60 * 7)
+        proc.consume(buildEvent(time=60 * 0))
+        proc.consume(buildEvent(time=60 * 1))
+        proc.consume(buildEvent(time=60 * 2))
+        proc.consume(buildEvent(time=60 * 3))
+        proc.consume(buildEvent(time=60 * 3))
+        proc.consume(buildEvent(time=60 * 4))
+        eventFinal = buildEvent(time=60 * 7)
         proc.consume(eventFinal)
 
         self.assertEqual(
@@ -411,12 +416,12 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
             action, mostCommonStatsInterval=10, highTrafficInterval=-1
         )
 
-        e0 = self._makeEvent(time=60 * 0)
-        e1 = self._makeEvent(time=60 * 1)  # Event, buffer flush
-        e2 = self._makeEvent(time=60 * 2)  # Event, buffer flush
-        e3 = self._makeEvent(time=60 * 3)  # Event, buffer flush
-        e4 = self._makeEvent(time=60 * 4)  # Event, buffer flush
-        e5 = self._makeEvent(time=60 * 5)  # Event, buffer flush
+        e0 = buildEvent(time=60 * 0)
+        e1 = buildEvent(time=60 * 1)  # Event, buffer flush
+        e2 = buildEvent(time=60 * 2)  # Event, buffer flush
+        e3 = buildEvent(time=60 * 3)  # Event, buffer flush
+        e4 = buildEvent(time=60 * 4)  # Event, buffer flush
+        e5 = buildEvent(time=60 * 5)  # Event, buffer flush
 
         proc.consume(e0)
         proc.consume(e1)
@@ -440,14 +445,14 @@ class TestAnalyzeAlgorithms(unittest.TestCase):
         "For better code coverage "
 
         with self.assertRaises(NotImplementedError):
-            e = self._makeEvent(time=1620796046)
+            e = buildEvent(time=1620796046)
             Processor(Action()).consume(e)
 
         with self.assertRaises(NotImplementedError):
-            StreamCalculator(Action()).count([self._makeEvent(time=1620796046)])
+            StreamCalculator(Action()).count([buildEvent(time=1620796046)])
 
         with self.assertRaises(NotImplementedError):
-            StreamCalculator(Action()).discount([self._makeEvent(time=1620796046)])
+            StreamCalculator(Action()).discount([buildEvent(time=1620796046)])
 
         with self.assertRaises(NotImplementedError):
             StreamCalculator(Action())._triggerAlert(1620796046)

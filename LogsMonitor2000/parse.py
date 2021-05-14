@@ -32,10 +32,12 @@ class HTTPLogParser(Parser):
         position = 0
         while True:
             position = self._parseFile(position)
-            if not self._isFollowMode:
+            if self._isFollowMode:
+                # Sleep for x seconds
+                time.sleep(float(os.getenv("DD_LOG_MONITOR_TIME", 1.0)))
+            else:
+                # Run only once
                 break
-            # Sleep for x seconds
-            time.sleep(float(os.getenv("DD_LOG_MONITOR_TIME", 1.0)))
 
     def _parseFile(self, position: int = 0) -> int:
         try:
@@ -61,6 +63,8 @@ class HTTPLogParser(Parser):
                     if self._isSanitised(row):
                         # and generate WebLogEvents to send for processing
                         self._generateEvent(row)
+                # Flush buffer
+                self.processor.consume(None)
                 return fd.tell()
         except FileNotFoundError as e:
             logging.error(f"HTTP log file doesn't exist: {self._path}")

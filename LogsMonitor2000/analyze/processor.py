@@ -1,5 +1,6 @@
 import heapq
 import logging
+from typing import Optional
 from collections import deque
 
 from ..event import Event, WebLogEvent
@@ -16,8 +17,11 @@ class Processor:
         # Action to notify
         self._action = action
 
-    def consume(self, event: Event) -> None:
-        """ Consume log event and generate other events (alerts) if applicable """
+    def consume(self, event: Optional[Event]) -> None:
+        """
+        Consume log event and generate other events (alerts) if applicable.
+        A None event value is a noop or buffer flush.
+        """
         raise NotImplementedError()
 
 
@@ -69,34 +73,41 @@ class AnalyticsProcessor(Processor):
         # We expect lots of events per second, therefore batch them together
         self._events: deque[list[Event]] = deque()
 
-    def consume(self, latestEvent: WebLogEvent) -> None:  # type: ignore
+    def consume(self, latestEvent: Optional[WebLogEvent]) -> None:  # type: ignore
         """Consume sourced traffic entry, calculate stats and volume changes in traffic"""
-
-        if self._events and self._events[-1][0].time >= latestEvent.time:
-            logging.warning(
-                f"Dropped log event as arrived more than {self._BUFFER_TIME}s late: {latestEvent}"
-            )
+        if latestEvent is None:
+            # A None event value is considered a full buffer flush, i.e. at EOF.
+            self._bufferFlush(None)
             return
 
-        # Add to buffer heap, sorted by time
+        latestEventTime = latestEvent.time
+        if self._events and self._events[-1][0].time >= latestEventTime:
+            logging.warning(f"Event dropped, >{self._BUFFER_TIME} late: {latestEvent}")
+            return
+
+        # Add to buffer, ordered by time
         heapq.heappush(self._buffer, latestEvent)
 
-        # Check time diff between smallest (earliest) buffer event and the current
         # If still within buffer time, nothing further to do
-        earliestBufferEvent = min(latestEvent.time, self._buffer[0].time)
-        timeDifference = latestEvent.time - earliestBufferEvent
-        if not self._buffer or timeDifference <= self._BUFFER_TIME:
-            logging.debug(f"Buffered event {latestEvent.time}, diff {timeDifference}")
-            return
+        if latestEventTime - self._buffer[0].time <= self._BUFFER_TIME:
+            logging.debug(f"Buffered event only {latestEventTime}")
+        else:
+            self._bufferFlush(latestEvent)
+
+    def _bufferFlush(self, latestEvent: Optional[WebLogEvent]) -> None:
 
         eventGroups: list[list[Event]] = []
 
-        # Flush events with time beyond the buffer time
-        while latestEvent.time - self._buffer[0].time > self._BUFFER_TIME:
+        # Flush the events that occured beyond the buffer time duration
+        while self._buffer and (
+            # None event value is considered a full buffer flush, i.e. at EOF.
+            latestEvent is None
+            or latestEvent.time - self._buffer[0].time > self._BUFFER_TIME
+        ):
 
             e = heapq.heappop(self._buffer)
 
-            # If previous (-1) event has same occurence time, group with it
+            # If previous (-1st) event has same occurence time, group with it
             if eventGroups and e.time == eventGroups[-1][0].time:
                 eventGroups[-1].append(e)
                 logging.debug(f"Flushed from buffer another: {e.time}")

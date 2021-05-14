@@ -11,4 +11,5 @@ class TestHTTPLogParser(TestCase):
         processor = MagicMock()
         p = HTTPLogParser(processor, "tests/small_sample_csv.txt")
         p.parse()
-        self.assertEqual(5, processor.consume.call_count, "Unexpected events number")
+        # 6 Events plus one call for buffer flush
+        self.assertEqual(6, processor.consume.call_count, "Unexpected events number")
