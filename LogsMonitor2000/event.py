@@ -18,8 +18,10 @@ class Event:
     priority: Priority
 
     def __lt__(self, other) -> bool:
-        " Ordered by time by default "
-        return self.time < other.time
+        " Ordered by time by default and message for extra stability "
+        return self.time < other.time or (
+            self.time == other.time and self.message < other.message
+        )
 
     def __repr__(self) -> str:
         return f"{datetime.fromtimestamp(self.time)} {self.message}"

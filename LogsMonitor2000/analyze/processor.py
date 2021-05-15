@@ -1,6 +1,6 @@
 import heapq
 import logging
-from typing import Optional
+from typing import Optional, Deque
 from collections import deque
 
 from ..event import Event, WebLogEvent
@@ -42,11 +42,17 @@ class AnalyticsProcessor(Processor):
         highTrafficThreshold=10,
     ):
         super().__init__(action)
+
+        # Collect sliding window events to count/discount in calculations as time progresses
+        # We often pop-left and append-right hence deque
+        # We expect lots of events per second, therefore batch them together
+        self._events: Deque[list[Event]] = deque()
+
         # Initialize calculators, each with its own time-window size
         self._statsCalculators: list[StreamCalculator] = []
         if mostCommonStatsInterval > 0:
             self._statsCalculators.append(
-                MostCommonCalculator(action, mostCommonStatsInterval)
+                MostCommonCalculator(action, self._events, mostCommonStatsInterval)
             )
         else:
             logging.info("Most Common Stats calculator deactivated")
@@ -54,7 +60,9 @@ class AnalyticsProcessor(Processor):
         # Add calculator if its parameters are valid
         if highTrafficThreshold > 0 and highTrafficInterval > 0:
             self._statsCalculators.append(
-                HighTrafficCalculator(action, highTrafficInterval, highTrafficThreshold)
+                HighTrafficCalculator(
+                    action, self._events, highTrafficInterval, highTrafficThreshold
+                )
             )
         else:
             logging.info("High Traffic Alerts calculator deactivated")
@@ -68,34 +76,28 @@ class AnalyticsProcessor(Processor):
         # Collect events in a heapq due to buffer out-of-order arrivals before processing them
         self._buffer: list[Event] = []
 
-        # Collect sliding window events to count/discount in calculations as time progresses
-        # We often pop-left and append-right hence deque
-        # We expect lots of events per second, therefore batch them together
-        self._events: deque[list[Event]] = deque()
-
     def consume(self, latestEvent: Optional[WebLogEvent]) -> None:  # type: ignore
         """Consume sourced traffic entry, calculate stats and volume changes in traffic"""
         if latestEvent is None:
-            # A None event value is considered a full buffer flush, i.e. at EOF.
+            # None event value is considered a full flush of buffer, i.e. at EOF.
             self._bufferFlush(None)
             return
 
-        latestEventTime = latestEvent.time
-        if self._events and self._events[-1][0].time >= latestEventTime:
-            logging.warning(f"Event dropped, >{self._BUFFER_TIME} late: {latestEvent}")
+        if self._events and self._events[-1][0].time > latestEvent.time:
+            logging.warning(
+                f"Event {latestEvent.time} dropped due to >{self._BUFFER_TIME}s late"
+            )
             return
 
         # Add to buffer, ordered by time
         heapq.heappush(self._buffer, latestEvent)
 
-        # If still within buffer time, nothing further to do
-        if latestEventTime - self._buffer[0].time <= self._BUFFER_TIME:
-            logging.debug(f"Buffered event only {latestEventTime}")
-        else:
-            self._bufferFlush(latestEvent)
+        # Flush any old enough items from buffer for processing
+        self._bufferFlush(latestEvent)
 
     def _bufferFlush(self, latestEvent: Optional[WebLogEvent]) -> None:
 
+        # To store events grouped and sorted by time
         eventGroups: list[list[Event]] = []
 
         # Flush the events that occured beyond the buffer time duration
@@ -116,11 +118,11 @@ class AnalyticsProcessor(Processor):
                 eventGroups.append([e])
 
         for eventGroup in eventGroups:
+            self._events.append(eventGroup)
+
             # Given latest event time, remove all entries that fall out from start of the _largestWindow interval
             # updating calculations along the way
             self._removeOldEvents(eventGroup[0].time)
-
-            self._events.append(eventGroup)
 
             # Add new event to calculations
             for calc in self._statsCalculators:

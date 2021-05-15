@@ -1,3 +1,4 @@
+from datetime import datetime
 import unittest
 from collections import deque
 from unittest.mock import MagicMock
@@ -13,7 +14,7 @@ def buildEvent(time: int) -> WebLogEvent:
     return WebLogEvent(
         time=time,
         priority=WebLogEvent.Priority.MEDIUM,
-        message="Some log",
+        message="mymsg",
         rfc931=None,
         authuser=None,
         status=None,
@@ -111,10 +112,57 @@ class TestBuffering(unittest.TestCase):
         self.assertEqual(3, len(proc._buffer))
 
 
-class TestCalculators(unittest.TestCase):
+class TestCalculatorInterval(unittest.TestCase):
+    """
+    Ensure events are collected ordered and removed when they
+    fall outside the window time interval
+    """
+
+    def testInterval(self):
+        action = MagicMock()
+        # Set an interval for any calculator, events are collected for the largest window
+        proc = AnalyticsProcessor(
+            action,
+            mostCommonStatsInterval=100,
+            highTrafficInterval=120,
+        )
+
+        # All within 120s interval
+        e0 = buildEvent(time=60 * 2)
+        e1 = buildEvent(time=60 * 1)
+        e2 = buildEvent(time=60 * 0)
+        e3 = buildEvent(time=60 * 1)
+        e4 = buildEvent(time=60 * 2)
+        # Goes above 120s, kicking out the e2 event at t=0
+        e5 = buildEvent(time=60 * 3)
+
+        # Make slightly different to ensure order is correct within grouped events
+        e1.message = "bladi"
+        e0.message = "blah"
+        proc.consume(e0)
+        proc.consume(e1)
+        proc.consume(e2)
+        proc.consume(e3)
+        proc.consume(e4)
+
+        proc.consume(None)
+        self.assertEqual(3, len(proc._events), "All events so far are within interval")
+        self.assertEqual(deque([[e2], [e1, e3], [e0, e4]]), proc._events)
+        proc.consume(e5)
+        proc.consume(None)
+        self.assertEqual(3, len(proc._events), "First event is now outside window")
+        self.assertEqual(deque([[e1, e3], [e0, e4], [e5]]), proc._events)
+
+        e6 = buildEvent(60 * 60)
+        proc.consume(e6)
+        proc.consume(None)
+        self.assertEqual(1, len(proc._events), "All but one events remain")
+        self.assertEqual(deque([[e6]]), proc._events)
+
+
+class TestCalculatorsAlerting(unittest.TestCase):
     "Test statistics calculation logic for high traffic alerts and most common stats"
 
-    @unittest.skip("Doesnt yet support buffer")
     def testHighTrafficAlerts(self):
         """ Test high traffic and back to normal alerting """
 
@@ -125,72 +173,74 @@ class TestCalculators(unittest.TestCase):
         proc = AnalyticsProcessor(
             action,
             mostCommonStatsInterval=-1,
-            highTrafficInterval=120,
-            highTrafficThreshold=3,
+            highTrafficInterval=3,
+            highTrafficThreshold=2,
         )
 
         # From normal to High traffic
-        e0 = buildEvent(time=60 * 0)
-        e1 = buildEvent(time=60 * 1)
-        e2 = buildEvent(time=60 * 2)
-        e3 = buildEvent(time=60 * 3)
-        e4 = buildEvent(time=60 * 3)
-        e5 = buildEvent(time=60 * 4)
-        proc.consume(e0)
-        proc.consume(e1)
-        proc.consume(e2)
-        self.assertEqual(3, len(proc._events), "All events collected")
-        proc.consume(e3)
-        self.assertEqual(3, len(proc._events), "First event is outside window")
+        proc.consume(buildEvent(time=0))
+        proc.consume(buildEvent(time=1))
+        proc.consume(buildEvent(time=2))
+        proc.consume(buildEvent(time=3))
+        proc.consume(buildEvent(time=3))
+        proc.consume(buildEvent(time=3))
+        proc.consume(None)
         # Ensure no high traffic alerts were fired
         self.assertEqual(0, action.notify.call_count, "Did not reach threshold")
 
-        proc.consume(e4)
-        # Check High alert fired
+        # Add 3 more to go from 2tps to 2.33tps
+        proc.consume(buildEvent(time=3))
+        proc.consume(None)
+        self.assertEqual(proc._statsCalculators[0]._average, 2.3333333333333335)
+        # Traffic increases but must not alert again
+        proc.consume(buildEvent(time=3))
+        proc.consume(buildEvent(time=3))
+        proc.consume(buildEvent(time=3))
+        proc.consume(None)
+        self.assertEqual(proc._statsCalculators[0]._average, 3.3333333333333335)
+        # Check High Traffic alert fired only once
+        self.assertEqual(1, action.notify.call_count, "Only alerted once")
         alertHighTraffic = Event(
-            time=e4.time,
+            time=3,
             priority=Event.Priority.HIGH,
             message="High traffic generated an alert - "
-            f"hits 4, triggered at {e4.time}",
+            f"hits 2.33, triggered at {datetime.fromtimestamp(3)}",
         )
         action.notify.assert_called_with(alertHighTraffic)
 
-        # Only generate alert once if we continue to cross threshold
-        proc.consume(e5)
-        action.notify.assert_called_once()
-        self.assertEqual(
-            4, len(proc._events), "First two events are now outside window"
-        )
-
         # Back to normal also generates alert
-        e6 = buildEvent(time=60 * 6)
+        e6 = buildEvent(time=7)
         proc.consume(e6)
+        proc.consume(None)
+        self.assertEqual(proc._statsCalculators[0]._average, 1.6666666666666667)
         alertBackToNormal = Event(
             time=e6.time,
             priority=Event.Priority.HIGH,
-            message=f"Traffic is now back to normal as of {e6.time}",
+            message=f"Traffic is now back to normal as of {datetime.fromtimestamp(e6.time)}",
         )
         action.notify.assert_called_with(alertBackToNormal)
+        self.assertEqual(2, action.notify.call_count, "High and Back to Normal alerts")
 
-        e7 = buildEvent(time=60 * 9)
+        e7 = buildEvent(time=9)
         proc.consume(e7)
-        self.assertEqual(
-            2, action.notify.call_count, "No more alerts as traffic stays low"
-        )
-        self.assertEqual(1, len(proc._events), "Only one event collected")
+        proc.consume(None)
+        self.assertEqual(proc._statsCalculators[0]._average, 2.0)
+        self.assertEqual(2, action.notify.call_count, "Traffic stays within threshold")
 
-        # Traffic up, alert High again
-        e8 = buildEvent(time=60 * 9)
-        e9 = buildEvent(time=60 * 9)
-        e10 = buildEvent(time=60 * 9)
+        # Traffic back up, alert High Traffic again
+        e8 = buildEvent(time=9)
+        e9 = buildEvent(time=9)
+        e10 = buildEvent(time=9)
         proc.consume(e8)
         proc.consume(e9)
         proc.consume(e10)
+        proc.consume(None)
+        self.assertEqual(proc._statsCalculators[0]._average, 3)
         alertHighTraffic = Event(
             time=e10.time,
             priority=Event.Priority.HIGH,
             message="High traffic generated an alert - "
-            f"hits 4, triggered at {e10.time}",
+            f"hits 3.00, triggered at {datetime.fromtimestamp(e10.time)}",
         )
         action.notify.assert_called_with(alertHighTraffic)
 
@@ -449,16 +499,16 @@ class TestCalculators(unittest.TestCase):
             Processor(Action()).consume(e)
 
         with self.assertRaises(NotImplementedError):
-            StreamCalculator(Action()).count([buildEvent(time=1620796046)])
+            StreamCalculator(Action(), []).count([buildEvent(time=1620796046)])
 
         with self.assertRaises(NotImplementedError):
-            StreamCalculator(Action()).discount([buildEvent(time=1620796046)])
+            StreamCalculator(Action(), []).discount([buildEvent(time=1620796046)])
 
         with self.assertRaises(NotImplementedError):
-            StreamCalculator(Action())._triggerAlert(1620796046)
+            StreamCalculator(Action(), [])._triggerAlert(1620796046)
 
         with self.assertRaises(ValueError):
-            MostCommonCalculator(Action()).count([123])
+            MostCommonCalculator(Action(), []).count([123])
 
         with self.assertRaises(ValueError):
-            MostCommonCalculator(Action()).discount([123])
+            MostCommonCalculator(Action(), []).discount([123])

@@ -9,8 +9,8 @@ from collections import Counter
 class MostCommonCalculator(StreamCalculator):
     "Keeps track of most common source, most common section in a given time-interval"
 
-    def __init__(self, action: Action, windowSizeInSeconds=10):
-        super().__init__(action, windowSizeInSeconds)
+    def __init__(self, action: Action, events, windowSizeInSeconds=10):
+        super().__init__(action, events, windowSizeInSeconds)
 
         # Collect stats every x seconds
         self._timeLastCollectedStats: int = -1

@@ -1,4 +1,5 @@
 import logging
+from typing import Deque
 from ..event import Event
 from ..action import Action
 
@@ -6,14 +7,20 @@ from ..action import Action
 class StreamCalculator:
     "Interface for implementing different kinds of statistics calculation on a window of events"
 
-    def __init__(self, action: Action, windowSizeInSeconds=10):
+    def __init__(
+        self, action: Action, events: Deque[list[Event]], windowSizeInSeconds=10
+    ):
 
         # To trigger any alerts if needed
         self._action = action
 
-        # Window size could be smaller than the largest calculator window of collected events
-        # Window is any time after this last removed item
+        # Keep track of event last discounted by each calculator,
+        # as sliding window sizes of events can be different.
+        # Window is defined by time strictly greater than this last item removed and onwards
         self._lastRemovalTime: int = -1
+
+        # Full list of collected events
+        self._events = events
 
         # Time window required for calculations
         self.windowSize: int = windowSizeInSeconds
