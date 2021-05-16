@@ -1,6 +1,5 @@
 # Logs Monitor 2000
-Monitor your HTTP logs for interesting statistics, or get alerted on unusual traffic levels.
-
+Monitor your HTTP logs for interesting statistics, and get alerted on unusual traffic levels.
 
 ## Usage
 No additional libraries are needed to run the log monitor. Tested with Python 3.8.1 and 3.9.4.
@@ -40,11 +39,15 @@ optional arguments:
 
 ```
 
+**Troubleshooting**
+
+* "No module named LogsMonitor2000/" -> Remove "/" when running the application.
+* "Relative module names not supported" -> Remove any "./" preceeding the module name, like so: `python -m LogsMonitor2000 -h`
+
 
 ## Development
 
-Testing
---------
+**Testing**
 
 To run unit-tests:
 
@@ -63,11 +66,11 @@ source .venv/Scripts/activate
 pip install -r requirements-dev.txt
 ```
 
-Code coverage:
+**Code coverage**
 
 `coverage run --omit '*/.venv/*,*/tests/*' -m unittest`
 
-Generate test-coverage report (html optional):
+Generate test-coverage `report` (or `html`):
 
 `coverage report`
 
@@ -88,14 +91,16 @@ LogsMonitor2000\parse.py                              66      7    89%
 TOTAL                                                275      7    97%
 ```
 
-Mypy for type-checking:
+**Mypy for type-checking**
 
-`mypy LogMonitor2000`
+`mypy LogsMonitor2000`
+
 `Success: no issues found in 10 source files`
 
-Profilng:
+**Profilng**
 
 `python -m profile -s 'tottime' -m LogsMonitor2000 tests/sample_csv.txt`
+
 
 Then `deactivate` when done.
 
