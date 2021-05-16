@@ -11,7 +11,34 @@ Simply pass a log file:
 
 For more options see help:
 
-```python -m LogsMonitor2000 --help```
+```
+python -m LogsMonitor2000 --help
+
+usage: __main__.py [-h] [--verbose] [--stats_interval STATS_INTERVAL]
+                   [--high_traffic_interval HIGH_TRAFFIC_INTERVAL]
+                   [--high_traffic_threshold HIGH_TRAFFIC_THRESHOLD]
+                   [--follow]
+                   file
+
+Parse HTTP logs and monitor traffic
+
+positional arguments:
+  file                  HTTP log path, e.g. tests/sample_csv.txt
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --verbose             Print DEBUG lines
+  --stats_interval STATS_INTERVAL
+                        Print general requests statistics every x seconds
+  --high_traffic_interval HIGH_TRAFFIC_INTERVAL
+                        Monitor high traffic over window size of x seconds
+  --high_traffic_threshold HIGH_TRAFFIC_THRESHOLD
+                        Number of requests to exceed within that interval in
+                        order to trigger an alert
+  --follow              Continuously watch file for updates, similar to `tail
+                        --follow`
+
+```
 
 
 ## Development
@@ -117,9 +144,16 @@ The TerminalNotifier action class displays the calculated statistics and importa
 Other 'Action' classes can be implemented such as sending an email notification, or calling an external API.
 
 
-**Scaling**
-Turn each of the parser/processor/action into a separate microservice, kafka-connected. 
-Parse and process sets of logs ingested from multiple server machines, sent possibly using the syslog protocol.
+Scaling
+--------
+
+Turn each of the parser/processor/action into a separate microservice, kafka-connected with WebLogEvent and Event being the protocol buffer message. 
+
+Multi-threadding can also be used to process events for each calculator in parallel without adding too much complexity.
+We can easily add the support of multiple Processor/Action instances to notify in a publish-subscribe form as the project grows.
+
+We can then parse and process sets of logs ingested from multiple server machines, sent possibly using the syslog protocol.
 Persist outputs from each step in a timeseries-db potentially for dynamic querying or further processing.
 
-We can add the support of multiple processors/actions instances to notify in a publish-subscribe form as the project grows.
+For ordering of events (i.e. scaling of the above buffering), a Buffer miscro-server can consume parsed events and use an in-memory datastore like Redis to temporarily store events grouped per second as they come in (or whichever granularity level we'd like). 
+Then once they're from e.g. 2 seconds ago, they can be passed on to the 'processor' for calculations or as Spark batch jobs.
