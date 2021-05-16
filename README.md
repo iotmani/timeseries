@@ -163,12 +163,19 @@ We'll need to synchronize before trigering notification to prevent miscalculatio
 Scaling
 --------
 
-* Turn each of the parser/processor/action into a separate microservice, kafka-connected with WebLogEvent and Event being the protocol buffer message. Scale instances of each appropriately to avoid idling and contention.
+* Turn each of the parser/processor/action into separate microservices, kafka-connected, with WebLogEvent as the protocol buffer message. Scale instances of each appropriately to avoid idling or contention.
 
 * We can then parse and process sets of logs ingested from multiple server machines, sent possibly using the syslog protocol.
+* Give each message a sequence order, which can be useful for idempotence later.
 * Persist outputs from each step in a timeseries-db potentially for dynamic querying or further processing.
 
-* For ordering of events (i.e. scaling of the above buffering), a Buffer miscro-server can consume parsed events and use an in-memory datastore like Redis to temporarily store events grouped per second as they come in (or whichever granularity level we'd like). 
+* For ordering of events (i.e. scaling of the above buffering), another dedicated miscro-server can consume parsed events and use an in-memory datastore like Redis to temporarily store events grouped per second as they come in (or whichever resolution level we'd like). 
 * Then once retrieve and delete all from e.g. over 2 seconds ago, to be passed on to the 'processor' for calculations or as Spark batch jobs.
-* In the case of Redis failure, we can rebuild it from replaying Kafka messages (i.e. store more than 2 seconds worth of parsed log event streams).
-* Idempotence is essential for easier maintenance/recovery, so that reprocessing already parsed events ends up in the same state at each stage.
+* In the case of Redis failure, we can rebuild it from replaying Kafka messages (i.e. store more than 2 seconds worth of parsed log event streams). Idempotence is essential for easier maintenance/recovery, so that reprocessing already parsed events ends up in the same state at each stage.
+
+
+Take home Project note
+----------------------
+I spent a cumulative time of 2 - 3 weeks on this project, ~40% of that was as an opportunity to learn parts of the Python ecosystem I was missing (e.g. project structure, unconventional builtin data structures and algorithms, mypy, best practices, unit-testing, mocking built-in functions...etc). The rest was mostly on reworking the project once I clarified we need to support out-of-order events, and improving performance while keeping code complexity low.
+Thank you! I really enjoyed working on this!
+PS: .git folder was left intentionally for added history on the repo development.
