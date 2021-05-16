@@ -17,17 +17,20 @@ class TestActionTerminalNotifier(TestCase):
             time=1620796046,
         )
         n.notify(event)
-        self.assertEqual(mockPrint.call_count, 4)
+        self.assertEqual(mockPrint.call_count, 4, "Three for header and one for event")
+
+        # Medium priority is printed with a bold timestamp
         mockPrint.assert_called_with(
             f"\x1b[1m{datetime.fromtimestamp(event.time)}\x1b[0m - {event.message}"
         )
 
+        # High priority is printed with a red timestamp
         event.priority = Event.Priority.HIGH
         n.notify(event)
         mockPrint.assert_called_with(
             f"\x1b[91m{datetime.fromtimestamp(event.time)}\x1b[0m - {event.message}"
         )
 
-        # Just for better code coverage
+        # Just for slightly better code coverage
         with self.assertRaises(NotImplementedError):
             Action().notify(event)

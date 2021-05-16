@@ -28,7 +28,7 @@ class MostCommonCalculator(StreamCalculator):
             self._countSections[e.section] -= 1
             self._countSources[e.source] -= 1
             # No need to update calculation for this calculator at 'discount'
-            # Alerts are only meaningful when we add a new one in case it puts us at a new interval
+            # Alerts for this are only meaningful when we add a new one in case it puts us at a new interval
 
     def count(self, events: list[WebLogEvent]) -> None:  # type: ignore
         if type(events[0]) is not WebLogEvent:
