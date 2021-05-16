@@ -1,0 +1,4 @@
+"10.0.0.2","-","apache",1549573860,"GET /api/user HTTP/1.0",200,1234
+"10.0.0.2","-","apache",1549573860,"GET malformed-section HTTP/1.0",200,1234
+"10.0.0.2","-","apache",malformed-date,"GET /api/user HTTP/1.0",200,1234
+"-","missing-column",1549573860,"GET /api/user HTTP/1.0",200,1234

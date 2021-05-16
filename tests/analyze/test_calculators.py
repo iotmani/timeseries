@@ -4,10 +4,7 @@ from datetime import datetime
 from collections import deque
 from unittest.mock import MagicMock
 from LogsMonitor2000.event import Event
-from LogsMonitor2000.action import Action
-from LogsMonitor2000.analyze import Processor, AnalyticsProcessor
-from LogsMonitor2000.analyze.calculator import StreamCalculator
-from LogsMonitor2000.analyze.mostCommonCalculator import MostCommonCalculator
+from LogsMonitor2000.analyze import AnalyticsProcessor
 
 
 class TestCalculatorsInterval(unittest.TestCase):
@@ -388,25 +385,3 @@ class TestCalculatorsAlerting(unittest.TestCase):
             action.notify.call_count,
             "All processed except e5 buffered, all notified up to and excluding e4.",
         )
-
-    def testNotImplemented(self):
-        "For better code coverage "
-
-        with self.assertRaises(NotImplementedError):
-            e = buildEvent(time=1620796046)
-            Processor(Action()).consume(e)
-
-        with self.assertRaises(NotImplementedError):
-            StreamCalculator(Action(), []).count([buildEvent(time=1620796046)])
-
-        with self.assertRaises(NotImplementedError):
-            StreamCalculator(Action(), []).discount([buildEvent(time=1620796046)])
-
-        with self.assertRaises(NotImplementedError):
-            StreamCalculator(Action(), [])._triggerAlert(1620796046)
-
-        with self.assertRaises(ValueError):
-            MostCommonCalculator(Action(), []).count([123])
-
-        with self.assertRaises(ValueError):
-            MostCommonCalculator(Action(), []).discount([123])
