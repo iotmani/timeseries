@@ -36,7 +36,8 @@ class TerminalNotifier(Action):
         print("=" * TerminalNotifier._HEADER_WDTH)
 
     def notify(self, e: Event) -> None:
-        """ Not exactly sophisticated but it does the job"""
+        """Print to alert to console, high priority colored accordingly"""
+        # Not exactly sophisticated but it does the job nicely
         if e.priority > Event.Priority.MEDIUM:
             color = self.Colors.RED
         else:

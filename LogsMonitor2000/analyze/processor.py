@@ -80,6 +80,7 @@ class AnalyticsProcessor(Processor):
         """Consume sourced traffic entry, calculate stats and volume changes in traffic"""
         if latestEvent is None:
             # None event value is considered a full flush of buffer, i.e. at EOF.
+            # None parameter is passed instead of defaulting to it makes the intent more explicit IMO.
             self._bufferFlush(None)
             return
 
@@ -92,7 +93,7 @@ class AnalyticsProcessor(Processor):
         # Add to buffer, ordered by time
         heapq.heappush(self._buffer, latestEvent)
 
-        # Flush any old enough items from buffer for processing
+        # Flush any "old-enough" items from buffer for processing
         self._bufferFlush(latestEvent)
 
     def _bufferFlush(self, latestEvent: Optional[WebLogEvent]) -> None:
@@ -127,6 +128,10 @@ class AnalyticsProcessor(Processor):
             # Add new event to calculations
             for calc in self._statsCalculators:
                 calc.count(eventGroup)
+
+            # Generate alerts if applicable
+            for calc in self._statsCalculators:
+                calc.triggerAlert(eventGroup[0].time)
 
     def _removeOldEvents(self, newestEventTime: int) -> None:
         "Remove one or more events that have fallen out of any calculators' sliding window"

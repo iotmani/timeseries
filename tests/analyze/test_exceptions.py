@@ -27,7 +27,7 @@ class TestExceptions(unittest.TestCase):
             StreamCalculator(action, []).discount([e])
 
         with self.assertRaises(NotImplementedError):
-            StreamCalculator(action, [])._triggerAlert(e.time)
+            StreamCalculator(action, []).triggerAlert(e.time)
 
         with self.assertRaises(NotImplementedError):
             Processor(action).consume(e)

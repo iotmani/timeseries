@@ -139,7 +139,6 @@ class TestCalculatorsAlerting(unittest.TestCase):
         )
         action.notify.assert_called_with(alertHighTraffic)
 
-    @unittest.skip("Doesnt yet support buffer")
     def testMostCommonStats(self):
         """Test that we generate stats only when expected,
         and with only the relevant events"""
@@ -159,6 +158,7 @@ class TestCalculatorsAlerting(unittest.TestCase):
         e6 = buildEvent(time=60 * 30 + 58)
 
         proc.consume(e0)
+        proc.consume(None)
         self.assertEqual(
             e0.time,
             proc._statsCalculators[0]._timeLastCollectedStats,
@@ -173,6 +173,7 @@ class TestCalculatorsAlerting(unittest.TestCase):
         e1.section = "/api"
         e1.source = "NSA"
         proc.consume(e1)
+        proc.consume(None)
 
         alert1 = Event(
             priority=Event.Priority.MEDIUM,
@@ -194,11 +195,13 @@ class TestCalculatorsAlerting(unittest.TestCase):
 
         # Too recent to trigger an alert
         proc.consume(e2)
+        proc.consume(None)
         self.assertEqual(2, len(proc._events))
         action.notify.assert_called_once()
 
         # Also too recent
         proc.consume(e3)
+        proc.consume(None)
         self.assertEqual(
             3, len(proc._events), "Expecting exactly this many log events collected"
         )
@@ -206,6 +209,7 @@ class TestCalculatorsAlerting(unittest.TestCase):
 
         # New interval crossed
         proc.consume(e4)
+        proc.consume(None)
         self.assertEqual(4, len(proc._events))
 
         alert2 = Event(
@@ -222,9 +226,10 @@ class TestCalculatorsAlerting(unittest.TestCase):
 
         # Within new interval, shouldn't trigger another event
         proc.consume(e5)
+        proc.consume(None)
 
         self.assertEqual(
-            3, len(proc._events), "Expecting exactly this many log events collected"
+            4, len(proc._events), "Expecting exactly this many log events collected"
         )
 
         self.assertEqual(
@@ -235,6 +240,7 @@ class TestCalculatorsAlerting(unittest.TestCase):
         e6.section = "/geocities"
         e6.source = "8.8.8.8"
         proc.consume(e6)
+        proc.consume(None)
 
         self.assertEqual(
             1, len(proc._events), "Expecting exactly this many log events collected"
@@ -314,41 +320,57 @@ class TestCalculatorsAlerting(unittest.TestCase):
         )
         action.notify.assert_called_with(alert1)
 
-    @unittest.skip("Doesnt yet support buffer")
-    def testHighTrafficWithMostCommonCalculators(self):
-        """Ensure no unenxpected interference when running both,
-        and with different interval windows.
+    def testMultipleCalculatorsTogether(self):
+        """
+        Test both calculators work fine together.
+        Ensure no unenxpected interference when running both,
+        and with different interval window sizes.
         """
 
         action = MagicMock()
         proc = AnalyticsProcessor(
             action,
             mostCommonStatsInterval=120,
-            highTrafficInterval=60,
+            highTrafficInterval=1,
             highTrafficThreshold=1,
         )
 
         proc.consume(buildEvent(time=60 * 0))
         proc.consume(buildEvent(time=60 * 1))
-        proc.consume(buildEvent(time=60 * 2))
+        proc.consume(buildEvent(time=60 * 2))  # Most common stats alert
         proc.consume(buildEvent(time=60 * 3))
-        proc.consume(buildEvent(time=60 * 3))
-        proc.consume(buildEvent(time=60 * 4))
-        eventFinal = buildEvent(time=60 * 7)
+        proc.consume(buildEvent(time=60 * 3))  # High traffic alert
+        proc.consume(buildEvent(time=60 * 4))  # Most common stats alert
+        eventFinal = buildEvent(time=60 * 7)  # Most common stats + traffic normal alert
         proc.consume(eventFinal)
+        proc.consume(None)
 
         self.assertEqual(
             5,
             action.notify.call_count,
-            "Expected this many stats and high traffic alerts",
+            "Expected this many most common stats and high traffic alerts",
         )
 
-        alert = Event(
-            priority=Event.Priority.HIGH,
-            time=eventFinal.time,
-            message=f"Traffic is now back to normal as of {eventFinal.time}",
+        self.assertEqual(
+            str(action.method_calls[0].args[0]),
+            "120 Most common section: /api (3 requests), source: GCHQ (3 requests)",
         )
-        action.notify.assert_called_with(alert)
+        self.assertEqual(
+            str(action.method_calls[1].args[0]),
+            "120 High traffic generated an alert - hits 2.00, triggered at 1969-12-31 19:02:00",
+        )
+        self.assertEqual(
+            str(action.method_calls[2].args[0]),
+            "240 Most common section: /api (4 requests), source: GCHQ (4 requests)",
+        )
+        self.assertEqual(
+            str(action.method_calls[3].args[0]),
+            "420 Most common section: /api (1 requests), source: GCHQ (1 requests)",
+        )
+        self.assertEqual(
+            str(action.method_calls[4].args[0]),
+            "420 Traffic is now back to normal as of 1969-12-31 19:07:00",
+        )
 
     def testMostCommonStatsSpacedEvents(self):
         """

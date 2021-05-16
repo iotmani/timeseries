@@ -56,9 +56,9 @@ class StreamCalculator:
         raise NotImplementedError()
 
     def discount(self, events: list[Event]) -> None:
-        "Implement to perform the actual removal from overall calculation of out of window event"
+        "Perform the actual removal from overall calculation of out of window event"
         raise NotImplementedError()
 
-    def _triggerAlert(self, eventTime: int) -> None:
-        "Implement to check if conditions are met for alerting"
+    def triggerAlert(self, eventTime: int) -> None:
+        "If conditions are met, trigger alert"
         raise NotImplementedError()

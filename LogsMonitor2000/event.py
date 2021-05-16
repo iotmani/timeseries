@@ -24,7 +24,7 @@ class Event:
         )
 
     def __repr__(self) -> str:
-        return f"{datetime.fromtimestamp(self.time)} {self.message}"
+        return f"{self.time} {self.message}"
 
 
 @dataclass

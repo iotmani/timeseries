@@ -122,7 +122,7 @@ Additional protocols or sources can just implement the Parser interface.
 
 AnalyticsProcessor class collects sourced log events and uses statistics to determine e.g. if there's a high level of traffic within the past x minutes. If so, it generates a High Traffic alert that need to be actioned by the Action module instance.
 
-*Buffering*:
+*Out-of-order buffering*:
 
 Events can come out-of-order, e.g. due to a multi-threaded HTTP server, and are buffered for 2 seconds by default (can be made configurable by the analyze.py self._BUFFER_TIME constant).
 This is so that an event at time T4 won't trigger the wrong "most common stats" when a number of event at time T3 occurs just after it.
@@ -144,16 +144,26 @@ The TerminalNotifier action class displays the calculated statistics and importa
 Other 'Action' classes can be implemented such as sending an email notification, or calling an external API.
 
 
+**Further improvements**
+
+* Multithreadding can be used to process events for each calculator in parallel without adding too much complexity. 
+
+* Python's deque is thread-safe, so we can multithread both  removals and inserts of the collected events that come out of the buffer.
+We'll need to synchronize before trigering notification to prevent miscalculations, as otherwise the sliding window can have the wrong length if e.g. we add the new and we call notify before removing the old events shrinking the window size temporarily.
+
+* We can easily add the support of multiple Processor/Action instances to notify in a publish-subscribe form as the project grows.
+
+* Store references to start time of each calculator to know exactly when to advance its start.
+
 Scaling
 --------
 
-Turn each of the parser/processor/action into a separate microservice, kafka-connected with WebLogEvent and Event being the protocol buffer message. 
+* Turn each of the parser/processor/action into a separate microservice, kafka-connected with WebLogEvent and Event being the protocol buffer message. Scale instances of each appropriately to avoid idling and contention.
 
-Multi-threadding can also be used to process events for each calculator in parallel without adding too much complexity.
-We can easily add the support of multiple Processor/Action instances to notify in a publish-subscribe form as the project grows.
+* We can then parse and process sets of logs ingested from multiple server machines, sent possibly using the syslog protocol.
+* Persist outputs from each step in a timeseries-db potentially for dynamic querying or further processing.
 
-We can then parse and process sets of logs ingested from multiple server machines, sent possibly using the syslog protocol.
-Persist outputs from each step in a timeseries-db potentially for dynamic querying or further processing.
-
-For ordering of events (i.e. scaling of the above buffering), a Buffer miscro-server can consume parsed events and use an in-memory datastore like Redis to temporarily store events grouped per second as they come in (or whichever granularity level we'd like). 
-Then once they're from e.g. 2 seconds ago, they can be passed on to the 'processor' for calculations or as Spark batch jobs.
+* For ordering of events (i.e. scaling of the above buffering), a Buffer miscro-server can consume parsed events and use an in-memory datastore like Redis to temporarily store events grouped per second as they come in (or whichever granularity level we'd like). 
+* Then once retrieve and delete all from e.g. over 2 seconds ago, to be passed on to the 'processor' for calculations or as Spark batch jobs.
+* In the case of Redis failure, we can rebuild it from replaying Kafka messages (i.e. store more than 2 seconds worth of parsed log event streams).
+* Idempotence is essential for easier maintenance/recovery, so that reprocessing already parsed events ends up in the same state at each stage.

@@ -34,18 +34,13 @@ class HighTrafficCalculator(StreamCalculator):
         self._average = self._totalCount / max(1, self.windowSize)
         logging.debug(f"High traffic average: {self._average}")
 
-        self._triggerAlert(events[0].time)
-
     def discount(self, oldOvents: list[Event]) -> None:
         "Discount and check if avg back to normal"
         self._totalCount -= len(oldOvents)
         self._average = self._totalCount / max(1, self.windowSize)
         logging.debug(f"High traffic average: {self._average}")
 
-        # Trigger alert if applicable, with most recently processed event time as 'now'
-        self._triggerAlert(self._events[-1][0].time)
-
-    def _triggerAlert(self, now: int) -> None:
+    def triggerAlert(self, now: int) -> None:
         """
         If average above threshold, alert once until recovery.
         If average back below threshold, alert once that it's recovered.

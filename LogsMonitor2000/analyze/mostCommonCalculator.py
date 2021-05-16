@@ -38,9 +38,8 @@ class MostCommonCalculator(StreamCalculator):
             logging.debug(f"Counting log {e.section} from {e.source} at {e.time}")
             self._countSections[e.section] += 1
             self._countSources[e.source] += 1
-        self._triggerAlert(e.time)
 
-    def _triggerAlert(self, latestEventTime: int) -> None:
+    def triggerAlert(self, latestEventTime: int) -> None:
         """ Refresh calculation, trigger alerts with most common sections/sources when applicable """
         if self._timeLastCollectedStats == -1:
             self._timeLastCollectedStats = latestEventTime
